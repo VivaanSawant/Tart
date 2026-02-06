@@ -1,17 +1,17 @@
 {
   "hole_cards": [
-    "10h",
-    "Qc"
+    "10c",
+    "7c"
   ],
   "flop": [
-    "5d",
-    "8h",
-    "As"
+    "2c",
+    "2h",
+    "2s"
   ],
-  "turn": "2s",
-  "river": "3d",
+  "turn": "Qs",
+  "river": "10s",
   "unknown_cards": [],
-  "equity_flop": 42.5,
-  "equity_turn": 34.5,
-  "equity_river": 20.0
+  "equity_flop": 40.3,
+  "equity_turn": 33.7,
+  "equity_river": 79.2
 }
