@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PokerPlaya – Card Lock</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      margin: 0;
+      padding: 16px;
+      background: #1a1a2e;
+      color: #eee;
+      min-height: 100vh;
+    }
+    h1 {
+      margin: 0 0 8px 0;
+      font-size: 1.5rem;
+      font-weight: 600;
+    }
+    .subtitle {
+      color: #888;
+      font-size: 0.9rem;
+      margin-bottom: 20px;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 20px;
+      align-items: start;
+    }
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+    .video-wrap {
+      background: #0f0f1a;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid #2a2a4a;
+    }
+    .video-wrap img {
+      display: block;
+      width: 100%;
+      height: auto;
+      max-height: 70vh;
+      object-fit: contain;
+    }
+    .panel {
+      background: #16213e;
+      border-radius: 12px;
+      padding: 16px;
+      border: 1px solid #2a2a4a;
+    }
+    .panel h2 {
+      margin: 0 0 12px 0;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #a0a0c0;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .section {
+      margin-bottom: 20px;
+    }
+    .section:last-child { margin-bottom: 0; }
+    .cards-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      min-height: 44px;
+    }
+    .card-chip {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+    .card-chip.hole {
+      background: #e67e22;
+      color: #fff;
+    }
+    .card-chip.flop {
+      background: #9b59b6;
+      color: #fff;
+    }
+    .card-chip.turn {
+      background: #3498db;
+      color: #fff;
+    }
+    .card-chip.river {
+      background: #f1c40f;
+      color: #1a1a2e;
+    }
+    .card-chip.clickable {
+      background: #27ae60;
+      color: #fff;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .card-chip.clickable:hover {
+      background: #2ecc71;
+      border-color: #fff;
+    }
+    .status {
+      font-size: 0.85rem;
+      color: #888;
+      margin-top: 8px;
+    }
+    .status.waiting { color: #f39c12; }
+    .status.done { color: #27ae60; }
+    .btn {
+      padding: 10px 16px;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      background: #e74c3c;
+      color: #fff;
+      margin-top: 12px;
+    }
+    .btn:hover { background: #c0392b; }
+    .btn-primary {
+      background: #27ae60;
+      margin-right: 8px;
+    }
+    .btn-primary:hover { background: #2ecc71; }
+    .equity-row { margin: 4px 0; font-size: 0.95rem; }
+    .equity-num { font-weight: 700; color: #2ecc71; }
+    .stack-row { color: #a0a0c0; margin-top: 8px; }
+    .recommendation-row { margin-top: 10px; font-size: 1rem; font-weight: 600; }
+    #recommendation.bet { color: #2ecc71; }
+    #recommendation.fold { color: #e74c3c; }
+  </style>
+</head>
+<body>
+  <h1>PokerPlaya – Card Lock</h1>
+  <p class="subtitle">One-click lock hole, then flop and turn (and river) auto-detect after 2 seconds stable.</p>
+
+  <div class="layout">
+    <div class="video-wrap">
+      <img id="video" src="/video_feed" alt="Live feed">
+    </div>
+
+    <div class="panel">
+      <div class="section">
+        <h2>Your hole cards</h2>
+        <div id="hole-cards" class="cards-row"></div>
+        <p id="hole-hint" class="status">Show your 2 hole cards to the camera, then click Lock hole.</p>
+        <button type="button" class="btn btn-primary" id="lock-hole-btn">Lock hole (1 click)</button>
+      </div>
+
+      <div class="section">
+        <h2>Detected (not yet locked)</h2>
+        <div id="available-cards" class="cards-row"></div>
+      </div>
+
+      <div class="section">
+        <h2>Flop</h2>
+        <div id="flop-cards" class="cards-row"></div>
+        <p id="flop-status" class="status waiting">Waiting for 3 cards stable 2s…</p>
+      </div>
+
+      <div class="section">
+        <h2>Turn</h2>
+        <div id="turn-cards" class="cards-row"></div>
+        <p id="turn-status" class="status waiting">Waiting for 1 card stable 2s…</p>
+      </div>
+
+      <div class="section">
+        <h2>River</h2>
+        <div id="river-cards" class="cards-row"></div>
+        <p id="river-status" class="status waiting">Waiting for 1 card stable 2s…</p>
+      </div>
+
+      <div class="section">
+        <h2>Predicted equity</h2>
+        <p class="equity-row">Flop: <span id="equity-flop" class="equity-num">—</span></p>
+        <p class="equity-row">Turn: <span id="equity-turn" class="equity-num">—</span></p>
+        <p class="equity-row">River: <span id="equity-river" class="equity-num">—</span></p>
+        <p class="equity-row stack-row">Stack: <span id="stack-size">$10</span></p>
+        <p class="recommendation-row">Recommendation: <span id="recommendation">—</span></p>
+        <p id="equity-message" class="status equity-msg"></p>
+      </div>
+
+      <button type="button" class="btn" id="clear-btn">Clear hand (full restart)</button>
+    </div>
+  </div>
+
+  <script>
+    const holeEl = document.getElementById('hole-cards');
+    const availableEl = document.getElementById('available-cards');
+    const flopEl = document.getElementById('flop-cards');
+    const turnEl = document.getElementById('turn-cards');
+    const riverEl = document.getElementById('river-cards');
+    const flopStatus = document.getElementById('flop-status');
+    const turnStatus = document.getElementById('turn-status');
+    const riverStatus = document.getElementById('river-status');
+    const holeHint = document.getElementById('hole-hint');
+    const clearBtn = document.getElementById('clear-btn');
+    const lockHoleBtn = document.getElementById('lock-hole-btn');
+    const equityFlopEl = document.getElementById('equity-flop');
+    const equityTurnEl = document.getElementById('equity-turn');
+    const equityRiverEl = document.getElementById('equity-river');
+    const recommendationEl = document.getElementById('recommendation');
+    const equityMessageEl = document.getElementById('equity-message');
+
+    const STACK = 10;
+
+    function formatEquity(val) {
+      if (val == null || val === '' || isNaN(Number(val))) return '—';
+      return Number(val).toFixed(1);
+    }
+
+    function getRecommendation(equityFlop, equityTurn, equityRiver) {
+      var equity = equityRiver != null && equityRiver !== '' ? equityRiver : (equityTurn != null && equityTurn !== '' ? equityTurn : (equityFlop != null && equityFlop !== '' ? equityFlop : null));
+      if (equity == null || equity === '' || isNaN(Number(equity))) return { text: '—', isFold: false };
+      var pct = Number(equity);
+      if (pct < 50) return { text: 'FOLD', isFold: true };
+      var bet = Math.min(STACK, Math.max(1, Math.round(pct / 100 * STACK)));
+      return { text: 'Bet $' + bet, isFold: false };
+    }
+
+    function renderCards(container, cards, type, onClick) {
+      container.textContent = '';
+      cards.forEach(card => {
+        const el = document.createElement(onClick ? 'button' : 'span');
+        if (onClick) {
+          el.type = 'button';
+          el.addEventListener('click', () => onClick(card));
+        }
+        el.className = 'card-chip ' + (type || '') + (onClick ? ' clickable' : '');
+        el.textContent = card;
+        container.appendChild(el);
+      });
+    }
+
+    function renderAvailable(cards, holeCount) {
+      availableEl.textContent = '';
+      const canLock = holeCount < 2;
+      if (!canLock) {
+        holeHint.textContent = 'Hole full (2/2). Click a hole card to remove it, or Clear hand for new hand.';
+      } else {
+        holeHint.textContent = 'Show your 2 hole cards to the camera, then click Lock hole.';
+      }
+      lockHoleBtn.disabled = !canLock;
+      cards.forEach(card => {
+        const btn = document.createElement('button');
+        btn.className = 'card-chip clickable';
+        btn.textContent = card;
+        btn.type = 'button';
+        btn.disabled = !canLock;
+        btn.addEventListener('click', () => lockHole(card));
+        availableEl.appendChild(btn);
+      });
+    }
+
+    async function lockHole(card) {
+      try {
+        const r = await fetch('/api/lock_hole', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ card }),
+        });
+        const data = await r.json();
+        if (data.ok) fetchState();
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function lockHoleAll() {
+      try {
+        const r = await fetch('/api/lock_hole_all', { method: 'POST' });
+        const data = await r.json();
+        if (data.ok) fetchState();
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function clearAll() {
+      try {
+        await fetch('/api/clear', { method: 'POST' });
+        fetchState();
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function fetchState() {
+      fetch('/api/state')
+        .then(res => res.json())
+        .then(data => {
+          renderCards(holeEl, data.hole_cards || [], 'hole', lockHole);
+          renderAvailable(data.available_cards || [], (data.hole_cards || []).length);
+          renderCards(flopEl, data.flop_cards || [], 'flop');
+          renderCards(turnEl, data.turn_card ? [data.turn_card] : [], 'turn');
+          renderCards(riverEl, data.river_card ? [data.river_card] : [], 'river');
+
+          flopStatus.textContent = (data.flop_cards || []).length >= 3
+            ? 'Locked (3 cards).'
+            : 'Waiting for 3 cards stable 2s…';
+          flopStatus.className = (data.flop_cards || []).length >= 3 ? 'status done' : 'status waiting';
+
+          turnStatus.textContent = data.turn_card
+            ? 'Locked.'
+            : 'Waiting for 1 card stable 2s…';
+          turnStatus.className = data.turn_card ? 'status done' : 'status waiting';
+
+          riverStatus.textContent = data.river_card
+            ? 'Locked.'
+            : 'Waiting for 1 card stable 2s…';
+          riverStatus.className = data.river_card ? 'status done' : 'status waiting';
+
+          equityFlopEl.textContent = formatEquity(data.equity_flop);
+          equityTurnEl.textContent = formatEquity(data.equity_turn);
+          equityRiverEl.textContent = formatEquity(data.equity_river);
+
+          var rec = getRecommendation(data.equity_flop, data.equity_turn, data.equity_river);
+          recommendationEl.textContent = rec.text;
+          recommendationEl.className = rec.isFold ? 'fold' : 'bet';
+
+          if (data.equity_error) {
+            equityMessageEl.textContent = data.equity_error;
+            equityMessageEl.style.display = 'block';
+          } else if ((data.hole_cards || []).length < 2 || (data.flop_cards || []).length < 3) {
+            equityMessageEl.textContent = 'Lock 2 hole cards + 3 flop to see equity and recommendation.';
+            equityMessageEl.style.display = 'block';
+          } else {
+            equityMessageEl.textContent = 'State also logged to card_log.json';
+            equityMessageEl.style.display = 'block';
+          }
+        })
+        .catch(() => {});
+    }
+
+    lockHoleBtn.addEventListener('click', lockHoleAll);
+    clearBtn.addEventListener('click', clearAll);
+    setInterval(fetchState, 500);
+    fetchState();
+  </script>
+</body>
+</html>

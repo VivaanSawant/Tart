@@ -1,0 +1,5 @@
+opencv-python>=4.8.0
+ultralytics>=8.0.0
+omegaconf>=2.3.0
+flask>=3.0.0
+treys>=0.1.8

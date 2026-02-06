@@ -1,0 +1,13 @@
+{
+  "hole_cards": [
+    "Qc",
+    "10h"
+  ],
+  "flop_cards": [
+    "5d",
+    "8h",
+    "As"
+  ],
+  "turn_card": "2s",
+  "river_card": "3d"
+}
