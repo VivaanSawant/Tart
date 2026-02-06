@@ -22,6 +22,7 @@ from ultralytics import YOLO
 
 import card_logger
 import equitypredict
+import pot_calc
 
 # Model configuration
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -140,15 +141,31 @@ def run_webcam_worker(shared_state: dict, stop_event: threading.Event):
                     shared_state["last_unknown_set"] = unknown_set
                     shared_state["last_unknown_time"] = now
                 elif (now - last_unknown_time) >= STABILITY_SECONDS:
-                    if len(shared_state["flop_cards"]) < 3 and len(unknown_set) == 3:
+                    confirmed = shared_state.get("betting_confirmed_up_to")
+                    if (
+                        len(shared_state["flop_cards"]) < 3
+                        and len(unknown_set) == 3
+                        and len(shared_state["locked_cards"]) == 2
+                        and confirmed in ("preflop", "flop", "turn", "river")
+                    ):
                         shared_state["flop_cards"] = sorted(unknown_set)
                         shared_state["last_unknown_set"] = None
                         hand_updated = True
-                    elif shared_state["turn_card"] is None and len(unknown_set) == 1:
+                    elif (
+                        shared_state["turn_card"] is None
+                        and len(unknown_set) == 1
+                        and len(shared_state["flop_cards"]) == 3
+                        and confirmed in ("flop", "turn", "river")
+                    ):
                         shared_state["turn_card"] = next(iter(unknown_set))
                         shared_state["last_unknown_set"] = None
                         hand_updated = True
-                    elif shared_state["river_card"] is None and len(unknown_set) == 1:
+                    elif (
+                        shared_state["river_card"] is None
+                        and len(unknown_set) == 1
+                        and shared_state["turn_card"] is not None
+                        and confirmed in ("turn", "river")
+                    ):
                         shared_state["river_card"] = next(iter(unknown_set))
                         shared_state["last_unknown_set"] = None
                         hand_updated = True
@@ -221,6 +238,9 @@ shared_state = {
     "last_unknown_set": None,
     "last_unknown_time": 0.0,
     "lock": threading.Lock(),
+    "pot_state": pot_calc.PotState(),
+    "current_street": "flop",  # which street we're deciding on: preflop, flop, turn, river
+    "betting_confirmed_up_to": None,  # None | "hole" | "preflop" | "flop" | "turn" | "river"
 }
 stop_event = threading.Event()
 
@@ -271,16 +291,55 @@ def api_state():
         equity_river=equity_river,
     )
 
+    # Pending betting: which street must be confirmed before scanning for next cards
+    with shared_state["lock"]:
+        confirmed = shared_state.get("betting_confirmed_up_to")
+    n_hole, n_flop = len(hole), len(flop)
+    has_turn, has_river = turn is not None, river is not None
+    if n_hole == 2 and n_flop == 0 and confirmed in (None, "hole"):
+        pending_betting_street = "preflop"
+    elif n_flop == 3 and not has_turn and confirmed == "preflop":
+        pending_betting_street = "flop"
+    elif has_turn and not has_river and confirmed == "flop":
+        pending_betting_street = "turn"
+    elif has_river and confirmed == "turn":
+        pending_betting_street = "river"
+    else:
+        pending_betting_street = None
+
+    # Pot odds: use current street and pot state for recommendation
+    with shared_state["lock"]:
+        pot_state = shared_state["pot_state"]
+        current_street = shared_state["current_street"]
+    equity_for_street = pot_calc.get_equity_for_street(
+        current_street, equity_flop, equity_turn, equity_river
+    )
+    to_call = pot_state.amount_to_call(current_street)
+    required_equity = pot_state.required_equity_pct(current_street)
+    verdict, reason = pot_calc.recommendation(
+        equity_for_street, current_street, pot_state
+    )
+
     return jsonify({
         "hole_cards": hole,
         "flop_cards": flop,
         "turn_card": turn,
         "river_card": river,
         "available_cards": available,
+        "pending_betting_street": pending_betting_street,
         "equity_flop": equity_flop,
         "equity_turn": equity_turn,
         "equity_river": equity_river,
         "equity_error": equity_error,
+        "pot": {
+            "state": pot_state.to_dict(),
+            "current_street": current_street,
+            "pot_before_call": pot_state.pot_before_our_call(current_street),
+            "to_call": to_call,
+            "required_equity_pct": required_equity,
+            "recommendation": verdict,
+            "recommendation_reason": reason,
+        },
     })
 
 
@@ -306,6 +365,8 @@ def api_lock_hole():
                 shared_state["river_card"] = None
             hole.append(card)
             action = "locked"
+            if len(hole) == 2:
+                shared_state["betting_confirmed_up_to"] = "hole"
     persist_hand_state(shared_state)
     return jsonify({"ok": True, "action": action})
 
@@ -331,8 +392,72 @@ def api_lock_hole_all():
             if shared_state["river_card"] == card:
                 shared_state["river_card"] = None
             hole.append(card)
+        if len(shared_state["locked_cards"]) == 2:
+            shared_state["betting_confirmed_up_to"] = "hole"
     persist_hand_state(shared_state)
     return jsonify({"ok": True, "locked": to_lock})
+
+
+@app.route("/api/confirm_betting", methods=["POST"])
+def api_confirm_betting():
+    """
+    Confirm betting for a street before scanning for the next cards.
+    Body: { "street": "preflop"|"flop"|"turn"|"river", "opponent": number, "hero": number }
+    Opponent/hero are total amount put in that street (0 = check).
+    """
+    data = request.get_json(force=True, silent=True) or {}
+    street = data.get("street")
+    if street not in pot_calc.STREETS:
+        return jsonify({"ok": False, "error": "missing or invalid 'street'"}), 400
+    opponent = float(data.get("opponent") or 0)
+    hero = float(data.get("hero") or 0)
+    with shared_state["lock"]:
+        state = shared_state["pot_state"]
+        state._bets(street)["opponent"] = opponent
+        state._bets(street)["hero"] = hero
+        shared_state["betting_confirmed_up_to"] = street
+    return jsonify({"ok": True})
+
+
+@app.route("/api/pot", methods=["GET"])
+def api_pot_get():
+    """Return current pot state and pot-odds info for the current decision street."""
+    with shared_state["lock"]:
+        pot_state = shared_state["pot_state"]
+        current_street = shared_state["current_street"]
+    to_call = pot_state.amount_to_call(current_street)
+    required_equity = pot_state.required_equity_pct(current_street)
+    return jsonify({
+        "state": pot_state.to_dict(),
+        "current_street": current_street,
+        "pot_before_call": pot_state.pot_before_our_call(current_street),
+        "to_call": to_call,
+        "required_equity_pct": required_equity,
+    })
+
+
+@app.route("/api/pot", methods=["POST"])
+def api_pot_post():
+    """
+    Update pot state and/or current decision street.
+    Body: { "starting_pot"?, "preflop"?: { "opponent"?, "hero"? }, "flop"?, "turn"?, "river"?, "current_street"? }
+    """
+    data = request.get_json(force=True, silent=True) or {}
+    with shared_state["lock"]:
+        if "starting_pot" in data or any(s in data for s in pot_calc.STREETS):
+            state = shared_state["pot_state"]
+            if "starting_pot" in data:
+                state.starting_pot = float(data.get("starting_pot") or 0)
+            for street in pot_calc.STREETS:
+                b = data.get(street)
+                if isinstance(b, dict):
+                    if "opponent" in b:
+                        state._bets(street)["opponent"] = float(b.get("opponent") or 0)
+                    if "hero" in b:
+                        state._bets(street)["hero"] = float(b.get("hero") or 0)
+        if "current_street" in data and data["current_street"] in pot_calc.STREETS:
+            shared_state["current_street"] = data["current_street"]
+    return jsonify({"ok": True})
 
 
 @app.route("/api/clear", methods=["POST"])
@@ -345,6 +470,9 @@ def api_clear():
         shared_state["river_card"] = None
         shared_state["last_unknown_set"] = None
         shared_state["last_unknown_time"] = 0.0
+        shared_state["pot_state"] = pot_calc.PotState()
+        shared_state["current_street"] = "flop"
+        shared_state["betting_confirmed_up_to"] = None
     clear_hand_state_file()
     equitypredict.clear_cache()
     return jsonify({"ok": True})
