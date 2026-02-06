@@ -2,3 +2,10 @@ __pycache__/
 *.pyc
 card_log.json
 current_hand.json
+backend/__pycache__/
+backend/card_log.json
+backend/current_hand.json
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+.DS_Store

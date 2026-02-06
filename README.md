@@ -1,31 +1,37 @@
 # PokerPlaya – Live card detection
 
-Webcam app that runs one of four YOLOv8 models to detect playing cards in real time.
+Flask backend + React frontend for real-time card detection and hand tracking.
 
-## Setup
-
-```bash
-pip install -r requirements.txt
-```
-
-## Run
+## Backend setup
 
 ```bash
-python app.py
+python -m pip install -r backend/requirements.txt
 ```
 
-1. A **control window** opens with a dropdown to pick the model.
-2. A **video window** opens with your webcam feed and bounding boxes + labels for detected cards.
-3. Change the model anytime from the dropdown.
-4. Press **Q** in the video window (or close the control window) to quit.
+## Run backend (API + video feed)
 
-## Models
+```bash
+python backend/app_web.py
+```
 
-| Option | File | Use case |
-|--------|------|----------|
-| YOLOv8s Playing Cards | `yolov8s_playing_cards.pt` | Playing-card–specific (recommended for cards) |
-| YOLOv8m Base | `yolov8m.pt` | General base model |
-| YOLOv8m Synthetic | `yolov8m_synthetic.pt` | Trained on synthetic data |
-| YOLOv8m Tuned | `yolov8m_tuned.pt` | Fine-tuned model |
+The backend serves JSON APIs and an MJPEG stream at `/video_feed`.
 
-Labels shown on screen come from each model’s class names (e.g. card names if the model was trained with them).
+## Run frontend (React)
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open the Vite dev URL (typically `http://localhost:5173`) in your browser.
+
+## Optional: Tk desktop UI
+
+```bash
+python backend/app.py
+```
+
+## Model file
+
+The model file `yolov8m_synthetic.pt` remains in the repo root and is loaded by the backend.

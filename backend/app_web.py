@@ -1,5 +1,5 @@
 """
-Web interface for PokerPlaya: HTML UI with click-to-lock hole cards.
+API backend for PokerPlaya: JSON endpoints and MJPEG video feed.
 Flop (3 cards), turn (1), and river (1) auto-lock when stable for 2 seconds.
 """
 
@@ -17,7 +17,7 @@ except ImportError:
     sys.exit(1)
 
 import cv2
-from flask import Flask, Response, jsonify, request, render_template
+from flask import Flask, Response, jsonify, request
 from ultralytics import YOLO
 
 import card_logger
@@ -26,6 +26,7 @@ import pot_calc
 
 # Model configuration
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+REPO_ROOT = os.path.dirname(SCRIPT_DIR)
 MODEL_FILE = "yolov8m_synthetic.pt"
 MODEL_NAME = "YOLOv8m Synthetic"
 STABILITY_SECONDS = 2.0
@@ -43,7 +44,7 @@ EMPTY_HAND_STATE = {
 
 
 def get_model_path(filename: str) -> str:
-    return os.path.join(SCRIPT_DIR, filename)
+    return os.path.join(REPO_ROOT, filename)
 
 
 def write_hand_state_to_file(data: dict) -> None:
@@ -226,7 +227,7 @@ def run_webcam_worker(shared_state: dict, stop_event: threading.Event):
         stop_event.set()
 
 
-app = Flask(__name__, static_folder=None, template_folder=os.path.join(SCRIPT_DIR, "templates"))
+app = Flask(__name__)
 
 shared_state = {
     "detected_cards": [],
@@ -245,9 +246,9 @@ shared_state = {
 stop_event = threading.Event()
 
 
-@app.route("/")
-def index():
-    return render_template("index.html")
+@app.route("/health")
+def health():
+    return jsonify({"ok": True})
 
 
 @app.route("/api/state")
@@ -496,8 +497,8 @@ def video_feed():
 
 
 def main():
-    print(f"Starting PokerPlaya web UI (model: {MODEL_NAME})")
-    print("Open http://127.0.0.1:5001 in your browser.")
+    print(f"Starting PokerPlaya backend (model: {MODEL_NAME})")
+    print("API at http://127.0.0.1:5001")
     card_logger.LOG_FILE = os.path.join(SCRIPT_DIR, "card_log.json")
     # Write initial empty state so card_log.json exists
     card_logger.log_cards_present(hole_cards=[], flop_cards=[], unknown_cards=[])

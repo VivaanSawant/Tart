@@ -24,12 +24,13 @@ from card_logger import log_cards_present
 
 # Model configuration
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+REPO_ROOT = os.path.dirname(SCRIPT_DIR)
 MODEL_FILE = "yolov8m_synthetic.pt"
 MODEL_NAME = "YOLOv8m Synthetic"
 
 
 def get_model_path(filename: str) -> str:
-    return os.path.join(SCRIPT_DIR, filename)
+    return os.path.join(REPO_ROOT, filename)
 
 
 def get_all_known_cards(shared_state: dict) -> tuple[set[str], dict[str, str]]:
@@ -148,18 +149,18 @@ def run_webcam(shared_state: dict, stop_event: threading.Event):
                 frame, status_text, (10, 60),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 2
             )
-            
+
             cv2.putText(
                 frame, "Close window to quit", (10, 90),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 2
             )
 
             cv2.imshow(window_name, frame)
-            
+
             # Check if window was closed
             if cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE) < 1:
                 break
-            
+
             # Also allow Q key to quit
             if cv2.waitKey(1) & 0xFF == ord("q"):
                 break
@@ -387,7 +388,7 @@ def create_card_management_window(shared_state: dict, stop_event: threading.Even
         root.destroy()
 
     root.protocol("WM_DELETE_WINDOW", on_closing)
-    
+
     # Start periodic updates
     refresh_display()
     root.mainloop()
@@ -407,15 +408,15 @@ def main():
 
     # Start webcam thread
     webcam_thread = threading.Thread(
-        target=run_webcam, 
-        args=(shared_state, stop_event), 
+        target=run_webcam,
+        args=(shared_state, stop_event),
         daemon=True
     )
     webcam_thread.start()
 
     # Start card management window (blocks until closed)
     create_card_management_window(shared_state, stop_event)
-    
+
     # Cleanup
     stop_event.set()
 
