@@ -497,7 +497,7 @@ def video_feed():
 
 def main():
     print(f"Starting PokerPlaya web UI (model: {MODEL_NAME})")
-    print("Open http://127.0.0.1:5000 in your browser.")
+    print("Open http://127.0.0.1:5001 in your browser.")
     card_logger.LOG_FILE = os.path.join(SCRIPT_DIR, "card_log.json")
     # Write initial empty state so card_log.json exists
     card_logger.log_cards_present(hole_cards=[], flop_cards=[], unknown_cards=[])
@@ -505,7 +505,7 @@ def main():
     worker = threading.Thread(target=run_webcam_worker, args=(shared_state, stop_event), daemon=True)
     worker.start()
     try:
-        app.run(host="0.0.0.0", port=5000, threaded=True, use_reloader=False)
+        app.run(host="0.0.0.0", port=5001, threaded=True, use_reloader=False)
     finally:
         stop_event.set()
 
