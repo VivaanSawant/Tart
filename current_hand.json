@@ -1,13 +1,13 @@
 {
   "hole_cards": [
-    "10c",
-    "7c"
-  ],
-  "flop_cards": [
     "2c",
-    "2h",
     "2s"
   ],
-  "turn_card": "Qs",
-  "river_card": "10s"
+  "flop_cards": [
+    "10c",
+    "2h",
+    "Qs"
+  ],
+  "turn_card": "10s",
+  "river_card": "7c"
 }
