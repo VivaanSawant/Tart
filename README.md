@@ -21,7 +21,7 @@ The backend serves JSON APIs and an MJPEG stream at `/video_feed`.
 ```bash
 cd frontend
 npm install
-npm run dev
+npm run dev -- --host
 ```
 
 Open the Vite dev URL (typically `http://localhost:5173`) in your browser.
