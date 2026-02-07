@@ -316,6 +316,18 @@
   margin-right: 2px;
 }
 
+.hud-bot-status {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.hud-last-action {
+  font-size: 0.9rem;
+  color: #2ecc71;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
 .hud-voice-line {
   width: 100%;
   font-size: 0.78rem;

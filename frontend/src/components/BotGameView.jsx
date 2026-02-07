@@ -22,6 +22,7 @@ export default function BotGameView() {
   const isMyTurn = currentActor === heroSeat
   const street = state?.street ?? 'preflop'
   const showdown = state?.showdown ?? null
+  const lastBotAction = state?.last_bot_action ?? null
 
   const flopCount = flopCards.length
   const hasTurn = turnCard != null
@@ -251,7 +252,16 @@ export default function BotGameView() {
             </div>
           )}
           {!isMyTurn && (
-            <div className="hud-row">
+            <div className="hud-row hud-bot-status">
+              {lastBotAction && (
+                <span className="hud-last-action">
+                  Seat {lastBotAction.seat}{' '}
+                  {lastBotAction.action === 'check' ? 'checked'
+                    : lastBotAction.action === 'call' ? `called ${formatMoney(lastBotAction.amount)}`
+                    : lastBotAction.action === 'raise' ? `raised ${formatMoney(lastBotAction.amount)}`
+                    : lastBotAction.action === 'fold' ? 'folded' : lastBotAction.action}
+                </span>
+              )}
               <span className="hud-seat-label">Seat {currentActor} (bot) is acting…</span>
             </div>
           )}
