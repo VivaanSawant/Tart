@@ -155,20 +155,20 @@ function App() {
           /* Game (default) and Info tabs both show the same layout:
              table on top, 3-column info panels below, video feed bottom-right */
           <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            {/* Table area */}
-            <Box
-              sx={{
-                display: 'flex',
-                justifyContent: 'center',
-                overflow: 'visible',
-                px: 3,
-                py: 1.5,
-                /* Take ~55% of available space for the table */
-                flex: '0 0 55%',
-                minHeight: 0,
-              }}
-            >
-              <TableSimulatorView
+            {/* Table area — same table look as Bot Game tab */}
+            <div className="table-hero" style={{ flex: '0 0 55%', minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  flex: 1,
+                  overflow: 'visible',
+                  px: 3,
+                  py: 1.5,
+                  minHeight: 0,
+                }}
+              >
+                <TableSimulatorView
                 holeCards={gameState.holeCards}
                 holeCount={gameState.holeCards.length}
                 flopCards={gameState.flopCards}
@@ -181,7 +181,8 @@ function App() {
                 equityRiver={gameState.equityRiver}
                 onHeroMove={handleHeroMove}
               />
-            </Box>
+              </Box>
+            </div>
 
             {/* Info panels — 3 equal-height cards, no scroll */}
             <Box

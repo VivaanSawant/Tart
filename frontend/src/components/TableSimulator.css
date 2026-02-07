@@ -1,0 +1,138 @@
+/* Green rectangular table — same as BotGameView: felt, five-card board, seats around */
+.table-sim-view .table-container {
+  position: relative;
+  width: 100%;
+  max-width: 1170px;
+  margin-left: auto;
+  margin-right: auto;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.table-sim-view .table-felt {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  aspect-ratio: 2.6;
+  min-height: 200px;
+  max-height: min(calc(100vh - 200px), 420px);
+  background: linear-gradient(135deg, #1a5f2a 0%, #0d3d1a 100%);
+  border-radius: 80px;
+  border: 10px solid #8b4513;
+  box-shadow: inset 0 0 80px rgba(0, 0, 0, 0.3), 0 10px 32px rgba(0, 0, 0, 0.5);
+}
+
+.table-sim-view .table-center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.table-sim-view .table-info-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.table-sim-view .table-pot {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #f1c40f;
+  text-shadow: 0 0 10px rgba(241, 196, 0, 0.5);
+  white-space: nowrap;
+}
+
+.table-sim-view .table-equity {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.table-sim-view .table-board {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: nowrap;
+}
+
+.table-sim-view .board-card-slot {
+  width: 128px;
+  height: 182px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-radius: 8px;
+  overflow: hidden;
+  background: transparent;
+}
+
+.table-sim-view .board-card-slot--filled {
+  border-color: transparent;
+}
+
+.table-sim-view .board-card-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.table-sim-view .seat {
+  border-radius: 8px;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.table-sim-view .seat.folded {
+  opacity: 0.5;
+  background-color: #1e1e1e !important;
+}
+
+.table-sim-view .seat.current {
+  border-color: #3498db;
+  box-shadow: 0 0 16px rgba(52, 152, 219, 0.5);
+}
+
+.table-sim-view .seat.hero {
+  z-index: 10;
+}
+
+.table-sim-view .hero-hole-cards {
+  margin-top: 8px;
+}
+
+.table-sim-view .hero-hole-slots {
+  display: flex;
+  flex-direction: row;
+  gap: 6px;
+  justify-content: center;
+}
+
+.table-sim-view .hero-hole-slot {
+  width: 59px;
+  height: 84px;
+  border: 2px solid rgba(230, 126, 34, 0.5);
+  border-radius: 8px;
+  background: rgba(15, 15, 26, 0.6);
+  overflow: hidden;
+}
+
+.table-sim-view .hero-hole-slot--filled {
+  border-color: transparent;
+  background: transparent;
+}
+
+.table-sim-view .hero-hole-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}

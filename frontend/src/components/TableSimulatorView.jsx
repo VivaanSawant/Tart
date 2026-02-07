@@ -334,7 +334,7 @@ export default function TableSimulatorView({
   }
 
   return (
-    <Box className="table-sim-view" sx={{ display: 'flex', flexDirection: 'column', overflow: 'visible' }}>
+    <Box className="table-sim-view" sx={{ display: 'flex', flexDirection: 'column', overflow: 'visible', width: '100%', height: '100%', minHeight: 240 }}>
       {error && <Alert severity="error" sx={{ mb: 1 }}>{error}</Alert>}
 
       <div className="table-container">
