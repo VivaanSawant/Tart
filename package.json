@@ -5,6 +5,7 @@
   "description": "Tart — poker app with frontend and backend",
   "scripts": {
     "build": "cd frontend && npm ci && npm run build",
+    "start": "cd frontend && npm run preview",
     "install:frontend": "cd frontend && npm ci",
     "install:backend": "cd backend && pip install -r requirements.txt 2>/dev/null || true"
   },
