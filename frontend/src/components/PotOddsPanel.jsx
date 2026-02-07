@@ -20,7 +20,15 @@ export default function PotOddsPanel({
 }) {
   const recommendation = potInfo?.recommendation || 'no_bet'
   const recommendationText =
-    recommendation === 'call' ? 'CALL' : recommendation === 'fold' ? 'FOLD' : '—'
+    recommendation === 'call'
+      ? 'CALL'
+      : recommendation === 'fold'
+        ? 'FOLD'
+        : recommendation === 'raise'
+          ? 'RAISE'
+          : recommendation === 'check'
+            ? 'CHECK'
+            : '—'
   const toCall = potInfo?.to_call ?? 0
   const hasBetToCall = toCall > 0
 
@@ -48,16 +56,21 @@ export default function PotOddsPanel({
       </div>
 
       <div className="pot-odds-result">
-        <p className="line">
-          Pot (before your call): <strong>{formatMoney(potInfo?.pot_before_call)}</strong>
-        </p>
-        <p className="line">
-          To call: <strong>{formatMoney(potInfo?.to_call)}</strong>
-        </p>
-        <p className="line">
-          Required equity:{' '}
-          <strong>{formatNumber(potInfo?.required_equity_pct)}</strong>%
-        </p>
+        {hasBetToCall && (
+          <>
+            <p className="line">
+              Pot (before your call): <strong>{formatMoney(potInfo?.pot_before_call)}</strong>
+            </p>
+            <p className="line">
+              To call: <strong>{formatMoney(potInfo?.to_call)}</strong>
+            </p>
+            <p className="line pot-odds-formula">
+              Pot odds: risk {formatMoney(potInfo?.to_call)} to win{' '}
+              {formatMoney((potInfo?.pot_before_call ?? 0) + (potInfo?.to_call ?? 0))} → need{' '}
+              <strong>{formatNumber(potInfo?.required_equity_pct)}%</strong> equity to call
+            </p>
+          </>
+        )}
         <p className="recommendation-row">
           Recommendation:{' '}
           <span className={`recommendation ${recommendation}`}>{recommendationText}</span>

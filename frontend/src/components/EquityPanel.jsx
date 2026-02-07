@@ -87,17 +87,25 @@ export default function EquityPanel({
           {potInfo.to_call > 0 ? (
             <p className={`equity-verdict ${potInfo.recommendation || 'no_bet'}`}>
               {potInfo.recommendation === 'call' && (
-                <>CALL {formatMoney(potInfo.to_call)}</>
+                <>CALL {formatMoney(potInfo.to_call)} (pot odds)</>
               )}
               {potInfo.recommendation === 'fold' && (
-                <>FOLD (need {formatMoney(potInfo.to_call)} to call)</>
+                <>FOLD — need {formatMoney(potInfo.to_call)} to call, pot odds say no</>
               )}
-              {potInfo.recommendation === 'no_bet' && (
-                <>No bet to call</>
+              {potInfo.recommendation === 'raise' && (
+                <>RAISE (strong hand vs {formatMoney(potInfo.to_call)} to call)</>
               )}
+              {potInfo.recommendation === 'check' && <>CHECK</>}
+              {potInfo.recommendation === 'no_bet' && <>No bet to call</>}
             </p>
           ) : (
-            <p className="equity-verdict no_bet">No bet to call — check or bet</p>
+            <p className={`equity-verdict ${potInfo.recommendation || 'no_bet'}`}>
+              {potInfo.recommendation === 'raise' && <>RAISE — bet ½–⅔ pot for value</>}
+              {potInfo.recommendation === 'check' && <>CHECK or small bet</>}
+              {!['raise', 'check'].includes(potInfo.recommendation) && (
+                <>No bet to call — check or bet</>
+              )}
+            </p>
           )}
         </div>
       )}

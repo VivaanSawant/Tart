@@ -349,6 +349,14 @@
   color: #e74c3c;
 }
 
+.recommendation.raise {
+  color: #f39c12;
+}
+
+.recommendation.check {
+  color: #3498db;
+}
+
 .recommendation.no_bet {
   color: #888;
 }

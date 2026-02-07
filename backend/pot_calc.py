@@ -93,6 +93,11 @@ class PotState:
         return state
 
 
+# Thresholds for value betting
+RAISE_WHEN_NO_BET_EQUITY = 55.0   # Equity % to recommend raise when we can check or bet
+RAISE_WHEN_FACING_BET_EQUITY = 60.0  # Equity % to recommend raise over call when facing a bet
+
+
 def recommendation(
     equity_pct: float | None,
     street: str,
@@ -102,33 +107,61 @@ def recommendation(
     Given our hand equity (0–100), the street we're on, and pot state,
     return (verdict, reason).
 
-    Verdict: "call" | "fold" | "no_bet"
-    - "no_bet": opponent hasn't bet this street (nothing to call).
-    - "call": equity >= required equity → calling is +EV or break-even.
-    - "fold": equity < required equity → folding is better.
+    Verdict: "call" | "fold" | "raise" | "check" | "no_bet"
+    - "no_bet": unknown state.
+    - "check": no bet to call, equity not strong enough to value bet.
+    - "raise": strong equity — value bet (no bet) or raise for value (facing bet).
+    - "call": facing bet, equity >= required → call is +EV.
+    - "fold": facing bet, equity < required (pot odds) → fold.
     """
     if street not in STREETS:
         return "no_bet", f"Unknown street: {street}"
 
     to_call = pot_state.amount_to_call(street)
-    if to_call <= 0:
-        return "no_bet", "No bet to call on this street."
-
     required = pot_state.required_equity_pct(street)
+
+    # No bet to call — we can check or bet
+    if to_call <= 0:
+        if equity_pct is None:
+            return "check", "Equity unknown. Check or bet small."
+        if equity_pct >= RAISE_WHEN_NO_BET_EQUITY:
+            return (
+                "raise",
+                f"Strong hand ({equity_pct:.1f}% equity). Bet ½–⅔ pot for value.",
+            )
+        if equity_pct >= 30:
+            return (
+                "check",
+                f"Medium equity ({equity_pct:.1f}%). Check or small bet.",
+            )
+        return (
+            "check",
+            f"Weak hand ({equity_pct:.1f}%). Check.",
+        )
+
+    # Facing a bet — use pot odds
     if required is None:
         return "no_bet", "Could not compute required equity."
 
     if equity_pct is None:
-        return "fold", f"Equity unknown. You need {required:.1f}% to call (pot odds)."
-
-    if equity_pct >= required:
         return (
-            "call",
-            f"Equity {equity_pct:.1f}% ≥ required {required:.1f}% → call is profitable.",
+            "fold",
+            f"Equity unknown. You need {required:.1f}% to call (pot odds). Fold unless you know you're ahead.",
+        )
+
+    if equity_pct < required:
+        return (
+            "fold",
+            f"Equity {equity_pct:.1f}% < required {required:.1f}% (pot odds) → fold.",
+        )
+    if equity_pct >= RAISE_WHEN_FACING_BET_EQUITY:
+        return (
+            "raise",
+            f"Equity {equity_pct:.1f}% well above required {required:.1f}%. Raise for value.",
         )
     return (
-        "fold",
-        f"Equity {equity_pct:.1f}% < required {required:.1f}% → fold.",
+        "call",
+        f"Equity {equity_pct:.1f}% ≥ required {required:.1f}% (pot odds) → call is profitable.",
     )
 
 
