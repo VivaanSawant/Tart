@@ -7,6 +7,8 @@ import useVoiceInput from '../hooks/useVoiceInput'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
+import Card from '@mui/material/Card'
+import CardContent from '@mui/material/CardContent'
 import Chip from '@mui/material/Chip'
 import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
@@ -23,7 +25,7 @@ function formatMoney(val) {
   return '$' + Number(val).toFixed(2)
 }
 
-export default function BotGameView() {
+export default function BotGameView({ playerProfile = null }) {
   const [state, setState] = useState(null)
   const [raiseAmount, setRaiseAmount] = useState(0.4)
   const [error, setError] = useState(null)
@@ -185,6 +187,67 @@ export default function BotGameView() {
 
   return (
     <Box className="table-sim-view table-sim-view--bots" sx={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', minHeight: 0, overflow: 'auto' }}>
+      {playerProfile && (
+        <Card sx={{ mb: 2, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }}>
+          <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
+            <Typography variant="subtitle1" fontWeight={700} gutterBottom>
+              Profile we&apos;re optimizing against
+            </Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+              Built from your Move Log. Bots use this to exploit your tendencies.
+            </Typography>
+            <Stack direction="row" flexWrap="wrap" spacing={2} sx={{ gap: 1.5 }}>
+              <Box>
+                <Typography variant="caption" color="text.secondary">Aggression</Typography>
+                <Typography variant="body2" fontWeight={600}>{playerProfile.aggression}/100</Typography>
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary">Optimal adherence</Typography>
+                <Typography variant="body2" fontWeight={600}>{playerProfile.adherence}%</Typography>
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary">Total moves</Typography>
+                <Typography variant="body2" fontWeight={600}>{playerProfile.totalMoves}</Typography>
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary">Bluff condition</Typography>
+                <Typography variant="body2" fontWeight={600}>Raise &gt;{playerProfile.bluffConditionPercent}% over suggested</Typography>
+              </Box>
+              {playerProfile.bluffCount > 0 && (
+                <>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Bluffs detected</Typography>
+                    <Typography variant="body2" fontWeight={600}>{playerProfile.bluffCount} ({playerProfile.bluffRate}% of raises)</Typography>
+                  </Box>
+                  {playerProfile.avgEquityWhenBluffing != null && (
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">Avg equity when bluffing</Typography>
+                      <Typography variant="body2" fontWeight={600}>{Number(playerProfile.avgEquityWhenBluffing).toFixed(1)}%</Typography>
+                    </Box>
+                  )}
+                  <Box sx={{ width: '100%' }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>Bluffs by street</Typography>
+                    <Stack direction="row" spacing={0.5} flexWrap="wrap">
+                      {['preflop', 'flop', 'turn', 'river'].filter((st) => (playerProfile.bluffByStreet[st] || 0) > 0).map((st) => (
+                        <Chip key={st} label={`${st}: ${playerProfile.bluffByStreet[st]}`} size="small" sx={{ height: 20, fontSize: '0.7rem', bgcolor: 'rgba(231,76,60,0.15)', color: '#e74c3c' }} />
+                      ))}
+                    </Stack>
+                  </Box>
+                </>
+              )}
+              <Box sx={{ width: '100%' }}>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>Action mix</Typography>
+                <Stack direction="row" spacing={0.5} flexWrap="wrap">
+                  {['call', 'raise', 'fold', 'check'].map((act) => (
+                    <Chip key={act} label={`${act}: ${playerProfile.byAction[act] || 0}`} size="small" sx={{ height: 20, fontSize: '0.7rem' }} />
+                  ))}
+                </Stack>
+              </Box>
+            </Stack>
+          </CardContent>
+        </Card>
+      )}
+
       {showExploitPanel && (
         <Alert
           severity="warning"

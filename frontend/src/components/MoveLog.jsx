@@ -42,6 +42,9 @@ function computeStats(moves) {
   const streetCorrect = { preflop: 0, flop: 0, turn: 0, river: 0 }
   const equityValues = []
   const raiseComparisons = []
+  let bluffCount = 0
+  const bluffByStreet = { preflop: 0, flop: 0, turn: 0, river: 0 }
+  const bluffEquityValues = []
 
   moves.forEach((m) => {
     const a = (m.action || '').toLowerCase()
@@ -54,6 +57,11 @@ function computeStats(moves) {
     if (m.street) streetCorrect[m.street] = (streetCorrect[m.street] || 0) + (isCorrect ? 1 : 0)
     if (m.equity != null) equityValues.push(Number(m.equity))
     if (a === 'raise' && m.amount != null && m.suggestedRaise != null) raiseComparisons.push({ actual: m.amount, optimal: m.suggestedRaise })
+    if (isBluffRaise(m)) {
+      bluffCount++
+      if (m.street) bluffByStreet[m.street] = (bluffByStreet[m.street] || 0) + 1
+      if (m.equity != null) bluffEquityValues.push(Number(m.equity))
+    }
   })
 
   const adherence = total > 0 ? Math.round((matched / total) * 100) : 0
@@ -86,8 +94,14 @@ function computeStats(moves) {
   const avgRaiseDiff = raiseComparisons.length
     ? raiseComparisons.reduce((s, r) => s + (r.actual - r.optimal), 0) / raiseComparisons.length
     : null
+  const avgEquityWhenBluffing = bluffEquityValues.length
+    ? bluffEquityValues.reduce((s, e) => s + e, 0) / bluffEquityValues.length
+    : null
+  const raiseCount = byAction.raise || 0
+  const bluffRate = raiseCount > 0 ? Math.round((bluffCount / raiseCount) * 100) : 0
 
   return {
+    raiseCount,
     total,
     matched,
     adherence,
@@ -104,6 +118,10 @@ function computeStats(moves) {
     foldGap,
     riverPct,
     avgRaiseDiff,
+    bluffCount,
+    bluffByStreet,
+    avgEquityWhenBluffing,
+    bluffRate,
   }
 }
 
@@ -222,6 +240,38 @@ export default function MoveLog({ moves = [] }) {
                 </div>
               ))}
             </div>
+
+            {/* Habits & bluff behavior */}
+            <Box sx={{ mt: 2.5, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+              <Typography variant="subtitle2" sx={{ mb: 1.5, color: 'text.secondary' }}>Habits &amp; when you bluff</Typography>
+              <Stack spacing={1} sx={{ fontSize: '0.85rem' }}>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center' }}>
+                  <Typography variant="body2"><strong>Aggression:</strong> {stats.aggression}/100 — bots use inverse to exploit.</Typography>
+                </Box>
+                <Box>
+                  <Typography variant="body2"><strong>Bluff condition:</strong> Raise &gt;{Math.round(BLUFF_OVER_RAISE_PERCENT * 100)}% over suggested amount for your equity.</Typography>
+                </Box>
+                {stats.bluffCount > 0 ? (
+                  <>
+                    <Typography variant="body2"><strong>Bluffs this session:</strong> {stats.bluffCount} {(stats.byAction.raise || 0) > 0 ? `${stats.bluffRate}% of your raises` : '—'}</Typography>
+                    {stats.avgEquityWhenBluffing != null && (
+                      <Typography variant="body2"><strong>Avg equity when bluffing:</strong> {stats.avgEquityWhenBluffing.toFixed(1)}%</Typography>
+                    )}
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
+                      <Typography variant="body2" component="span"><strong>Bluffs by street:</strong></Typography>
+                      {['preflop', 'flop', 'turn', 'river'].filter((st) => (stats.bluffByStreet[st] || 0) > 0).map((st) => (
+                        <Chip key={st} label={`${st} ${stats.bluffByStreet[st]}`} size="small" sx={{ height: 20, fontSize: '0.7rem', bgcolor: 'rgba(231,76,60,0.2)', color: '#e74c3c' }} />
+                      ))}
+                      {['preflop', 'flop', 'turn', 'river'].every((st) => !(stats.bluffByStreet[st] || 0)) && (
+                        <Typography variant="caption" color="text.secondary">—</Typography>
+                      )}
+                    </Box>
+                  </>
+                ) : (
+                  <Typography variant="body2" color="text.secondary">No bluffs detected this session (raises within suggested range).</Typography>
+                )}
+              </Stack>
+            </Box>
           </div>
         </CardContent>
       </Card>
@@ -336,35 +386,44 @@ export default function MoveLog({ moves = [] }) {
         </Card>
       )}
 
-      {/* Equity Trend */}
+      {/* Equity Trend (EV graph with y-axis labels) */}
       {stats.equityValues.length > 0 && (
         <Card sx={{ mb: 3 }}>
           <CardContent>
             <Typography variant="h6" gutterBottom>Equity Trend</Typography>
             <div className="equity-trend">
-              <svg viewBox="0 0 400 80" className="trend-svg" preserveAspectRatio="none">
-                <polyline
-                  fill="none"
-                  stroke="url(#equityGrad)"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  points={stats.equityValues.map((v, i) => {
-                    const denom = Math.max(stats.equityValues.length - 1, 1)
-                    return `${(i / denom) * 400},${70 - (v / 100) * 60}`
-                  }).join(' ')}
-                />
-                <defs>
-                  <linearGradient id="equityGrad" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor="#e74c3c" />
-                    <stop offset="50%" stopColor="#f1c40f" />
-                    <stop offset="100%" stopColor="#2ecc71" />
-                  </linearGradient>
-                </defs>
-              </svg>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Typography variant="caption">First move</Typography>
-                <Typography variant="caption">Last move</Typography>
+              <Box sx={{ display: 'flex', alignItems: 'stretch', gap: 0.5 }}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', py: 0.5, minWidth: 28 }}>
+                  {[100, 75, 50, 25, 0].map((n) => (
+                    <Typography key={n} variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem' }}>{n}%</Typography>
+                  ))}
+                </Box>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <svg viewBox="0 0 400 80" className="trend-svg" preserveAspectRatio="none">
+                    <polyline
+                      fill="none"
+                      stroke="url(#equityGrad)"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      points={stats.equityValues.map((v, i) => {
+                        const denom = Math.max(stats.equityValues.length - 1, 1)
+                        return `${(i / denom) * 400},${70 - (v / 100) * 60}`
+                      }).join(' ')}
+                    />
+                    <defs>
+                      <linearGradient id="equityGrad" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0%" stopColor="#e74c3c" />
+                        <stop offset="50%" stopColor="#f1c40f" />
+                        <stop offset="100%" stopColor="#2ecc71" />
+                      </linearGradient>
+                    </defs>
+                  </svg>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
+                    <Typography variant="caption" color="text.secondary">First move</Typography>
+                    <Typography variant="caption" color="text.secondary">Last move</Typography>
+                  </Box>
+                </Box>
               </Box>
             </div>
           </CardContent>
@@ -439,4 +498,21 @@ export default function MoveLog({ moves = [] }) {
       </Card>
     </Box>
   )
+}
+
+/** Build a summary profile from move log for the bots tab (aggression, bluff conditions, etc.) */
+export function getPlayerProfile(moves) {
+  if (!moves?.length) return null
+  const stats = computeStats(moves)
+  return {
+    aggression: stats.aggression,
+    adherence: stats.adherence,
+    byAction: stats.byAction,
+    bluffCount: stats.bluffCount,
+    bluffRate: stats.bluffRate,
+    bluffByStreet: stats.bluffByStreet,
+    avgEquityWhenBluffing: stats.avgEquityWhenBluffing,
+    bluffConditionPercent: Math.round(BLUFF_OVER_RAISE_PERCENT * 100),
+    totalMoves: stats.total,
+  }
 }

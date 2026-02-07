@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import './App.css'
 import Box from '@mui/material/Box'
 import Container from '@mui/material/Container'
@@ -21,7 +21,7 @@ import CameraPermission from './components/CameraPermission'
 import CameraSelector from './components/CameraSelector'
 import EquityPanel from './components/EquityPanel'
 import LandingPage from './components/LandingPage'
-import MoveLog from './components/MoveLog'
+import MoveLog, { getPlayerProfile } from './components/MoveLog'
 import HandProbabilitiesPanel from './components/HandProbabilitiesPanel'
 import PotOddsPanel from './components/PotOddsPanel'
 import BotGameView from './components/BotGameView'
@@ -108,6 +108,8 @@ function App() {
     setMoveLog((prev) => [...prev, { ...move, timestamp: Date.now() }])
   }, [])
 
+  const playerProfile = useMemo(() => getPlayerProfile(moveLog), [moveLog])
+
   if (showLanding) {
     return <LandingPage onEnter={() => setShowLanding(false)} />
   }
@@ -130,11 +132,19 @@ function App() {
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, flexShrink: 0, gap: 1 }}>
           <Tabs
             value={activeTab}
-            onChange={(_e, v) => setActiveTab(v)}
+            onChange={(_e, v) => {
+              if (v === 'bots' && moveLog.length === 0) return
+              setActiveTab(v)
+            }}
             sx={{ minHeight: 40, flexShrink: 0 }}
           >
             {TAB_VALUES.map((t) => (
-              <Tab key={t} value={t} label={t === 'movelog' ? 'Move Log' : t.charAt(0).toUpperCase() + t.slice(1)} />
+              <Tab
+                key={t}
+                value={t}
+                label={t === 'movelog' ? 'Move Log' : t === 'bots' ? 'Bots' : t.charAt(0).toUpperCase() + t.slice(1)}
+                disabled={t === 'bots' && moveLog.length === 0}
+              />
             ))}
           </Tabs>
 
@@ -162,9 +172,18 @@ function App() {
             <MoveLog moves={moveLog} />
           </Box>
         ) : activeTab === 'bots' ? (
-          <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', px: 2 }}>
-            <BotGameView />
-          </Box>
+          moveLog.length === 0 ? (
+            <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, py: 4 }}>
+              <Typography variant="h6" color="text.secondary">Bots tab is locked</Typography>
+              <Typography variant="body2" color="text.secondary" textAlign="center">
+                Make at least one move in the Game tab to unlock the Bots. Your Move Log builds your profile so bots can play against your tendencies.
+              </Typography>
+            </Box>
+          ) : (
+            <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', px: 2 }}>
+              <BotGameView playerProfile={playerProfile} />
+            </Box>
+          )
         ) : (
           /* Game (default) and Info tabs both show the same layout:
              table on top, 3-column info panels below, video feed bottom-right */
