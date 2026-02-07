@@ -1,5 +1,15 @@
 import { useCallback, useEffect, useState } from 'react'
 import './App.css'
+import Box from '@mui/material/Box'
+import Container from '@mui/material/Container'
+import Tabs from '@mui/material/Tabs'
+import Tab from '@mui/material/Tab'
+import Button from '@mui/material/Button'
+import Paper from '@mui/material/Paper'
+import Typography from '@mui/material/Typography'
+import Stack from '@mui/material/Stack'
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
+import ToggleButton from '@mui/material/ToggleButton'
 
 import {
   clearHand,
@@ -20,6 +30,7 @@ const SMALL_BLIND = 0.1
 const BIG_BLIND = 0.2
 const BUY_IN = 10
 
+const TAB_VALUES = ['game', 'movelog']
 
 function App() {
   const [showLanding, setShowLanding] = useState(true)
@@ -71,26 +82,20 @@ function App() {
     return () => clearInterval(interval)
   }, [])
 
-
   const handleClear = async () => {
     const res = await clearHand()
-    if (res && res.ok) {
-      handleFetchState()
-    }
+    if (res && res.ok) handleFetchState()
   }
 
   const handleNewTable = async () => {
     const res = await tableReset()
-    if (res && res.ok) {
-      handleFetchState()
-    }
+    if (res && res.ok) handleFetchState()
   }
 
-  const handlePlayStyleChange = async (aggression) => {
-    const res = await setPlayStyle(aggression)
-    if (res && res.ok) {
-      handleFetchState()
-    }
+  const handlePlayStyleChange = async (_e, value) => {
+    if (value == null) return
+    const res = await setPlayStyle(value)
+    if (res && res.ok) handleFetchState()
   }
 
   const handleHeroMove = useCallback((move) => {
@@ -103,123 +108,144 @@ function App() {
 
   return (
     <CameraPermission>
-    <div className="app">
-      <nav className="app-nav">
-        <button
-          type="button"
-          className={`nav-tab ${activeTab === 'game' ? 'active' : ''}`}
-          onClick={() => setActiveTab('game')}
-        >
-          Game
-        </button>
-        <button
-          type="button"
-          className={`nav-tab ${activeTab === 'info' ? 'active' : ''}`}
-          onClick={() => setActiveTab('info')}
-        >
-          Info
-        </button>
-        <button
-          type="button"
-          className={`nav-tab ${activeTab === 'movelog' ? 'active' : ''}`}
-          onClick={() => setActiveTab('movelog')}
-        >
-          Move Log
-        </button>
-        <button type="button" className="btn btn-clear nav-right-btn" style={{ marginLeft: 'auto' }} onClick={handleClear}>
-          Clear hand
-        </button>
-        <button type="button" className="btn btn-reset nav-right-btn" onClick={handleNewTable}>
-          New table
-        </button>
-      </nav>
+      <Container
+        maxWidth="lg"
+        disableGutters
+        sx={{
+          height: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          px: 2,
+          py: 1.5,
+        }}
+      >
+        {/* Navigation bar */}
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, flexShrink: 0, gap: 1 }}>
+          <Tabs
+            value={activeTab}
+            onChange={(_e, v) => setActiveTab(v)}
+            sx={{ minHeight: 40, flexShrink: 0 }}
+          >
+            {TAB_VALUES.map((t) => (
+              <Tab key={t} value={t} label={t === 'movelog' ? 'Move Log' : t.charAt(0).toUpperCase() + t.slice(1)} />
+            ))}
+          </Tabs>
 
-      {activeTab === 'info' ? (
-        <div className="info-tab">
-          <div className="info-tab-content">
-            <section className="play-style-section panel">
-              <h2>Play style</h2>
-              <p className="play-style-hint">Choose before each game. Affects call/raise equity thresholds.</p>
-              <div className="play-style-buttons">
-                <button
-                  type="button"
-                  className={`btn play-style-btn ${gameState.playStyle === 'conservative' ? 'active' : ''}`}
-                  onClick={() => handlePlayStyleChange('conservative')}
-                >
-                  Conservative
-                </button>
-                <button
-                  type="button"
-                  className={`btn play-style-btn ${gameState.playStyle === 'neutral' ? 'active' : ''}`}
-                  onClick={() => handlePlayStyleChange('neutral')}
-                >
-                  Neutral
-                </button>
-                <button
-                  type="button"
-                  className={`btn play-style-btn ${gameState.playStyle === 'aggressive' ? 'active' : ''}`}
-                  onClick={() => handlePlayStyleChange('aggressive')}
-                >
-                  Aggressive
-                </button>
-              </div>
-            </section>
+          {/* Centered slot for the actions HUD (rendered via portal from TableSimulatorView) */}
+          <Box id="actions-hud-slot" sx={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', minWidth: 0 }} />
 
-            <div className="panel">
-              <EquityPanel
+          <Box sx={{ flexShrink: 0, display: 'flex', gap: 1 }}>
+            <Button variant="outlined" color="error" size="small" onClick={handleClear}>
+              Clear hand
+            </Button>
+            <Button variant="contained" color="secondary" size="small" onClick={handleNewTable}>
+              New table
+            </Button>
+          </Box>
+        </Box>
+
+        {/* Tab content */}
+        {activeTab === 'movelog' ? (
+          <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', py: 2 }}>
+            <MoveLog moves={moveLog} />
+          </Box>
+        ) : (
+          /* Game (default) and Info tabs both show the same layout:
+             table on top, 3-column info panels below, video feed bottom-right */
+          <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            {/* Table area */}
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'center',
+                overflow: 'visible',
+                px: 3,
+                py: 1.5,
+                /* Take ~55% of available space for the table */
+                flex: '0 0 55%',
+                minHeight: 0,
+              }}
+            >
+              <TableSimulatorView
+                holeCards={gameState.holeCards}
+                holeCount={gameState.holeCards.length}
+                flopCards={gameState.flopCards}
+                turnCard={gameState.turnCard}
+                riverCard={gameState.riverCard}
+                potInfo={gameState.potInfo}
                 equityPreflop={gameState.equityPreflop}
                 equityFlop={gameState.equityFlop}
                 equityTurn={gameState.equityTurn}
                 equityRiver={gameState.equityRiver}
-                equityError={gameState.equityError}
-                betRecommendations={gameState.betRecommendations}
-                potInfo={gameState.potInfo}
-                holeCount={gameState.holeCards.length}
-                flopCount={gameState.flopCards.length}
-                playersInHand={gameState.table?.players_in_hand?.length ?? 6}
+                onHeroMove={handleHeroMove}
               />
-            </div>
+            </Box>
 
-            <div className="panel">
-              <PotOddsPanel
-                potInfo={gameState.potInfo}
-                smallBlind={SMALL_BLIND}
-                bigBlind={BIG_BLIND}
-                buyIn={BUY_IN}
-              />
-            </div>
-          </div>
-        </div>
-      ) : activeTab === 'movelog' ? (
-        <div className="info-tab">
-          <MoveLog moves={moveLog} />
-        </div>
-      ) : (
-        <div className="table-hero">
-          <TableSimulatorView
-            holeCards={gameState.holeCards}
-            holeCount={gameState.holeCards.length}
-            flopCards={gameState.flopCards}
-            turnCard={gameState.turnCard}
-            riverCard={gameState.riverCard}
-            potInfo={gameState.potInfo}
-            equityPreflop={gameState.equityPreflop}
-            equityFlop={gameState.equityFlop}
-            equityTurn={gameState.equityTurn}
-            equityRiver={gameState.equityRiver}
-            onHeroMove={handleHeroMove}
-          />
-        </div>
-      )}
+            {/* Info panels — 3-column layout below the table */}
+            <Box
+              sx={{
+                flex: 1,
+                minHeight: 0,
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr 1fr',
+                gap: 1.5,
+                pt: 1,
+                pb: 0.5,
+              }}
+            >
+              <Paper sx={{ p: 1.5, overflowY: 'auto', minHeight: 0 }}>
+                <Typography variant="h6" gutterBottom sx={{ fontSize: '0.85rem' }}>Play style</Typography>
+                <Typography variant="body2" sx={{ mb: 1, fontSize: '0.78rem' }}>
+                  Affects call/raise equity thresholds.
+                </Typography>
+                <ToggleButtonGroup
+                  value={gameState.playStyle}
+                  exclusive
+                  onChange={handlePlayStyleChange}
+                  size="small"
+                  sx={{ flexWrap: 'wrap' }}
+                >
+                  <ToggleButton value="conservative" sx={{ fontSize: '0.75rem', py: 0.5 }}>Conservative</ToggleButton>
+                  <ToggleButton value="neutral" sx={{ fontSize: '0.75rem', py: 0.5 }}>Neutral</ToggleButton>
+                  <ToggleButton value="aggressive" sx={{ fontSize: '0.75rem', py: 0.5 }}>Aggressive</ToggleButton>
+                </ToggleButtonGroup>
+                {/* Video feed tucked under play style */}
+                <Box sx={{ mt: 1.5 }}>
+                  <CameraSelector />
+                  <Box sx={{ mt: 0.5 }}>
+                    <VideoFeed src="/video_feed" />
+                  </Box>
+                </Box>
+              </Paper>
 
-      <div className="bottom-bar">
-        <div className="bottom-bar-spacer" />
-        <div className="video-section">
-          <CameraSelector />
-          <VideoFeed src="/video_feed" />
-        </div>
-      </div>
-    </div>
+              <Paper sx={{ p: 1.5, overflowY: 'auto', minHeight: 0 }}>
+                <EquityPanel
+                  equityPreflop={gameState.equityPreflop}
+                  equityFlop={gameState.equityFlop}
+                  equityTurn={gameState.equityTurn}
+                  equityRiver={gameState.equityRiver}
+                  equityError={gameState.equityError}
+                  betRecommendations={gameState.betRecommendations}
+                  potInfo={gameState.potInfo}
+                  holeCount={gameState.holeCards.length}
+                  flopCount={gameState.flopCards.length}
+                  playersInHand={gameState.table?.players_in_hand?.length ?? 6}
+                />
+              </Paper>
+
+              <Paper sx={{ p: 1.5, overflowY: 'auto', minHeight: 0 }}>
+                <PotOddsPanel
+                  potInfo={gameState.potInfo}
+                  smallBlind={SMALL_BLIND}
+                  bigBlind={BIG_BLIND}
+                  buyIn={BUY_IN}
+                />
+              </Paper>
+            </Box>
+          </Box>
+        )}
+      </Container>
     </CameraPermission>
   )
 }

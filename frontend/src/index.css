@@ -1,28 +1,4 @@
-:root {
-  font-family: 'Roboto Mono', monospace;
-  line-height: 1.5;
-  font-weight: 400;
-  color: #eee;
-  background: #1a1a1a;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
+/* Minimal global overrides — theme + CssBaseline handle the rest */
 * {
   box-sizing: border-box;
-}
-
-button, input, select, textarea {
-  font-family: inherit;
-}
-
-body {
-  margin: 0;
-  min-height: 100vh;
-}
-
-#root {
-  min-height: 100vh;
 }

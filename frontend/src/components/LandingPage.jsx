@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react'
+import Box from '@mui/material/Box'
+import ButtonBase from '@mui/material/ButtonBase'
+import Typography from '@mui/material/Typography'
 import './LandingPage.css'
 
 const _BANNER_ASCII = String.raw`
@@ -208,14 +211,36 @@ export default function LandingPage({ onEnter }) {
   }, [spadeGridRef, spadeScheduleRender])
 
   return (
-    <div className="landing">
-      <div className="landing-content">
-        <div
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100vh',
+        bgcolor: '#1a1a1a',
+        overflow: 'hidden',
+      }}
+    >
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '10px',
+          transform: 'scale(0.65)',
+          transformOrigin: 'center center',
+        }}
+      >
+        <ButtonBase
           className="landing-inline"
           onClick={onEnter}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => e.key === 'Enter' && onEnter()}
+          disableRipple
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '28px',
+            cursor: 'pointer',
+          }}
         >
           <pre
             ref={poker.preRef}
@@ -240,10 +265,23 @@ export default function LandingPage({ onEnter }) {
           >
             {PLAYA_INITIAL}
           </pre>
-        </div>
+        </ButtonBase>
 
-        <p className="landing-click-hint">Click to start</p>
-      </div>
-    </div>
+        <Typography
+          sx={{
+            fontFamily: "'Roboto Mono', monospace",
+            color: '#888',
+            fontSize: '1.54rem',
+            mt: 2,
+            ml: '15px',
+            letterSpacing: '0.05em',
+            userSelect: 'none',
+            textAlign: 'center',
+          }}
+        >
+          Click to start
+        </Typography>
+      </Box>
+    </Box>
   )
 }

@@ -1,58 +1,48 @@
-const STREET_LABELS = {
-  preflop: 'Preflop',
-  flop: 'Flop',
-  turn: 'Turn',
-  river: 'River',
-}
+import Button from '@mui/material/Button'
+import Dialog from '@mui/material/Dialog'
+import DialogActions from '@mui/material/DialogActions'
+import DialogContent from '@mui/material/DialogContent'
+import DialogTitle from '@mui/material/DialogTitle'
+import Typography from '@mui/material/Typography'
+
+const STREET_LABELS = { preflop: 'Preflop', flop: 'Flop', turn: 'Turn', river: 'River' }
 
 function formatMoney(val) {
   if (val == null || Number.isNaN(Number(val))) return '$0.00'
   return '$' + Number(val).toFixed(2)
 }
 
-export default function BettingModal({
-  open,
-  street,
-  costToCall = 0.2,
-  recommendation = null,
-  onSubmit,
-}) {
-  if (!open || !street) {
-    return null
-  }
+const recColor = { call: '#2ecc71', fold: '#e74c3c' }
 
-  const handleCall = () => {
-    onSubmit(street, Number(costToCall) || 0, true)
-  }
+export default function BettingModal({ open, street, costToCall = 0.2, recommendation = null, onSubmit }) {
+  if (!open || !street) return null
 
-  const handleFold = () => {
-    onSubmit(street, 0, false)
-  }
-
-  const showRecommendation = recommendation && (recommendation === 'call' || recommendation === 'fold')
+  const handleCall = () => onSubmit(street, Number(costToCall) || 0, true)
+  const handleFold = () => onSubmit(street, 0, false)
+  const showRec = recommendation === 'call' || recommendation === 'fold'
 
   return (
-    <div className="modal-overlay visible" role="dialog" aria-modal="true">
-      <div className="modal-box">
-        <h2>{STREET_LABELS[street] || street} — amount to call</h2>
-        <p>Cost to call (from table): {formatMoney(costToCall)}. Choose Call or Fold.</p>
-        {showRecommendation && (
-          <p className={`modal-recommendation equity-verdict ${recommendation}`}>
+    <Dialog open maxWidth="xs" fullWidth>
+      <DialogTitle>{STREET_LABELS[street] || street} — amount to call</DialogTitle>
+      <DialogContent>
+        <Typography variant="body2" sx={{ mb: 1 }}>
+          Cost to call (from table): {formatMoney(costToCall)}. Choose Call or Fold.
+        </Typography>
+        {showRec && (
+          <Typography sx={{ fontWeight: 700, fontSize: '1.1rem', color: recColor[recommendation] || '#888' }}>
             {recommendation === 'call' && <>Recommendation: CALL {formatMoney(costToCall)}</>}
-            {recommendation === 'fold' && (
-              <>Recommendation: FOLD (need {formatMoney(costToCall)} to call)</>
-            )}
-          </p>
+            {recommendation === 'fold' && <>Recommendation: FOLD (need {formatMoney(costToCall)} to call)</>}
+          </Typography>
         )}
-        <div className="modal-actions">
-          <button type="button" className="btn btn-primary" onClick={handleCall}>
-            Call {formatMoney(costToCall)}
-          </button>
-          <button type="button" className="btn btn-fold" onClick={handleFold}>
-            Fold
-          </button>
-        </div>
-      </div>
-    </div>
+      </DialogContent>
+      <DialogActions>
+        <Button variant="contained" color="success" onClick={handleCall}>
+          Call {formatMoney(costToCall)}
+        </Button>
+        <Button variant="contained" color="error" onClick={handleFold}>
+          Fold
+        </Button>
+      </DialogActions>
+    </Dialog>
   )
 }
