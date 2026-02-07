@@ -20,7 +20,7 @@ def transcribe_audio(
     api_key: str | None = None,
     language: str = "en",
     model: str = DEDALUS_MODEL,
-    prompt: str | None = "call, fold, check, raise, all in, cents, dollars",
+    prompt: str | None = None,
 ) -> str:
     """
     Transcribe an audio file using Dedalus Labs API.

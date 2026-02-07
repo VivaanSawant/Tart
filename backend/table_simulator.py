@@ -246,6 +246,17 @@ class TableSimulator:
                 self._start_new_hand()
                 return self.get_state()
 
+            # After fold, if no one left to act and all bets matched → advance street
+            if not self._to_act and self._all_matched():
+                hand_ended = self._advance_street()
+                if hand_ended:
+                    if self.on_hand_ended:
+                        self.on_hand_ended(self.get_state())
+                    self._start_new_hand()
+                    return self.get_state()
+                # Street advanced, current_actor set by _advance_street
+                return self.get_state()
+
             self._advance_current_actor()
             return self.get_state()
 

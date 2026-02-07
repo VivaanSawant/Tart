@@ -61,11 +61,18 @@ function spokenToNumber(str) {
 
 function parseVoiceCommand(transcript) {
   if (!transcript) return null
-  const t = transcript.toLowerCase().trim()
-  if (/\bfold\b/.test(t)) return { action: 'fold' }
-  if (/\bcheck\b/.test(t)) return { action: 'check' }
-  if (/\ball[\s-]?in\b/.test(t)) return { action: 'allin' }
-  const callMatch = t.match(/\bcall(?:\s+(.+))?/)
+  // Strip punctuation and normalize
+  const t = transcript.toLowerCase().replace(/[.,!?;:'"]/g, '').trim()
+
+  // Reject if too short (noise) or too long (conversation, not a command)
+  if (t.length < 3 || t.split(/\s+/).length > 6) return null
+
+  // STRICT: the transcript must START with the command word (optional "I" / "I'll" prefix).
+  // This prevents matching "all in" from "it's doing all in again" or "fold" from "I don't fold".
+
+  // --- CALL (with optional amount) ---
+  // "call" / "I call" / "call 20 cents" / "call one dollar"
+  const callMatch = t.match(/^(?:i\s+|i'll\s+)?call(?:\s+(.+))?$/)
   if (callMatch) {
     if (!callMatch[1]) return { action: 'call', amount: null }
     const rest = callMatch[1]
@@ -75,7 +82,10 @@ function parseVoiceCommand(transcript) {
     if (amount != null && isCents) amount = amount / 100
     return { action: 'call', amount }
   }
-  const raiseMatch = t.match(/\braise\s+(?:to\s+)?(.+)/)
+
+  // --- RAISE (with amount) ---
+  // "raise 50" / "raise to 1 dollar" / "I raise 20 cents"
+  const raiseMatch = t.match(/^(?:i\s+|i'll\s+)?raise\s+(?:to\s+)?(.+)$/)
   if (raiseMatch) {
     const rest = raiseMatch[1]
     const isCents = /\bcents?\b/.test(rest)
@@ -84,6 +94,19 @@ function parseVoiceCommand(transcript) {
     if (amount != null && isCents) amount = amount / 100
     return { action: 'raise', amount }
   }
+
+  // --- FOLD ---
+  // Only "fold" / "I fold" — nothing else
+  if (/^(?:i\s+|i'll\s+)?fold$/.test(t)) return { action: 'fold' }
+
+  // --- CHECK ---
+  // Only "check" / "I check" — nothing else
+  if (/^(?:i\s+|i'll\s+)?check$/.test(t)) return { action: 'check' }
+
+  // --- ALL IN ---
+  // VERY strict: only "all in" / "I'm all in" / "go all in" — nothing else
+  if (/^(?:i'm\s+|i\s+am\s+|go\s+)?all[\s-]?in$/.test(t)) return { action: 'allin' }
+
   return null
 }
 
