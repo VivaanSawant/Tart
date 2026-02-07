@@ -83,6 +83,7 @@ function parseVoiceCommand(transcript) {
 
 /* ---------- component ---------- */
 export default function TableSimulatorView({
+  holeCards = [],
   holeCount = 0,
   flopCards = [],
   turnCard = null,
@@ -403,32 +404,11 @@ export default function TableSimulatorView({
 
   return (
     <div className="table-sim-view">
-      <header className="table-sim-header">
-        <h1>Table Simulator</h1>
-        <div className="table-sim-controls">
-          <label>
-            Players
-            <select
-              value={numPlayers}
-              onChange={(e) => setNumPlayers(Number(e.target.value))}
-            >
-              {[2, 3, 4, 5, 6, 7, 8, 9, 10].map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button type="button" className="btn btn-reset" onClick={handleReset}>
-            New table
-          </button>
+      {heroPosition && (
+        <div className="hero-position-badge">
+          You are: <strong>{heroPosition}</strong>
         </div>
-        {heroPosition && (
-          <div className="hero-position-badge">
-            You are: <strong>{heroPosition}</strong>
-          </div>
-        )}
-      </header>
+      )}
 
       {error && <p className="table-sim-error">{error}</p>}
 
@@ -484,7 +464,7 @@ export default function TableSimulatorView({
             return (
               <div
                 key={seat}
-                className={`seat seat-${seat} ${!inHand ? 'folded' : ''} ${isCurrent ? 'current' : ''}`}
+                className={`seat seat-${seat} ${!inHand ? 'folded' : ''} ${isCurrent ? 'current' : ''} ${isHero ? 'hero' : ''}`}
                 style={{ left: `${x}%`, top: `${y}%`, transform: 'translate(-50%, -50%)' }}
               >
                 <div className="seat-label">
@@ -508,185 +488,103 @@ export default function TableSimulatorView({
                     I&apos;m Hero
                   </button>
                 )}
+                {isHero && (
+                  <div className="hero-hole-cards">
+                    <div className="hero-hole-slots">
+                      {[holeCards[0] || null, holeCards[1] || null].map((card, ci) => {
+                        const img = card ? getCardImage(card) : null
+                        return (
+                          <div key={ci} className={`hero-hole-slot${img ? ' hero-hole-slot--filled' : ''}`}>
+                            {img && <img src={img} alt={card} className="hero-hole-img" />}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             )
           })}
         </div>
       </div>
 
-      <div className="table-actions-panel">
-        {heroSeat == null ? (
-          <div className="hero-prompt">
-            <h3>Click &quot;I&apos;m Hero&quot; on your seat</h3>
-            <p className="hero-prompt-hint">
-              Each seat has an &quot;I&apos;m Hero&quot; button. Click yours, then you&apos;ll see your Call/Fold/Raise
-              when it&apos;s your turn and simulate opponents when it&apos;s not.
-            </p>
-          </div>
-        ) : (
-          <h3>
-            {currentActor != null ? (
-              isMyTurn ? (
-                canAct ? (
-                  <>Your turn (Seat {currentActor}, {heroPosition})</>
-                ) : (
-                  <>Your turn — waiting for CV to detect {cardsNeededForStreet(street)}</>
-                )
-              ) : (
-                canAct ? (
-                  <>Seat {currentActor} to act</>
-                ) : (
-                  <>Waiting for CV to detect {cardsNeededForStreet(street)}</>
-                )
-              )
-            ) : (
-              <>Waiting for next hand</>
-            )}
-          </h3>
-        )}
-
-        {currentActor != null && isMyTurn && (
-          <div className="action-buttons">
-            {!canAct ? (
-              <p className="table-sim-waiting">
-                Show {cardsNeededForStreet(street)} to the camera to act.
-              </p>
-            ) : (
-              <>
-                <div className="hero-actions-label">
-                  Hero acts: use keys <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd> or click
-                </div>
-                {canCheck && (
-                  <button
-                    type="button"
-                    className="btn btn-action btn-check"
-                    onClick={() => handleAction('check', 0, true)}
-                  >
-                    Check <span className="kbd">1</span>
-                  </button>
-                )}
-                {costToCall > 0 && (
-                  <button
-                    type="button"
-                    className="btn btn-action btn-call"
-                    onClick={() => handleAction('call', costToCall, true)}
-                  >
-                    Call {formatMoney(costToCall)} <span className="kbd">2</span>
-                  </button>
-                )}
-                <button
-                  type="button"
-                  className="btn btn-action btn-fold"
-                  onClick={() => handleAction('fold', 0, true)}
-                >
-                  Fold <span className="kbd">3</span>
-                </button>
-                <div className="raise-row">
-                  <button
-                    type="button"
-                    className="btn btn-action btn-raise"
-                    onClick={() => handleAction('raise', raiseAmount, true)}
-                  >
-                    Raise <span className="kbd">4</span>
-                  </button>
-                  <input
-                    type="number"
-                    min="0.01"
-                    step="0.1"
-                    value={raiseAmount}
-                    onChange={(e) => setRaiseAmount(Number(e.target.value) || 0.2)}
-                  />
-                </div>
-              </>
-            )}
-          </div>
-        )}
-
-        {currentActor != null && !isMyTurn && (
-          <div className="simulate-others">
-            <p className="simulate-label">Simulate other player (Seat {currentActor})</p>
-            <div className="action-buttons simulate-buttons">
+      {currentActor != null && (
+        <div className="actions-hud">
+          {isMyTurn && canAct && (
+            <div className="hud-row">
               {canCheck && (
-                <button
-                  type="button"
-                  className="btn btn-action btn-sim"
-                  onClick={() => handleAction('check', 0, false)}
-                >
+                <button type="button" className="btn btn-action btn-check hud-btn" onClick={() => handleAction('check', 0, true)}>
                   Check
                 </button>
               )}
               {costToCall > 0 && (
-                <button
-                  type="button"
-                  className="btn btn-action btn-sim"
-                  onClick={() => handleAction('call', costToCall, false)}
-                >
+                <button type="button" className="btn btn-action btn-call hud-btn" onClick={() => handleAction('call', costToCall, true)}>
                   Call {formatMoney(costToCall)}
                 </button>
               )}
-              <button
-                type="button"
-                className="btn btn-action btn-sim"
-                onClick={() => handleAction('fold', 0, false)}
-              >
+              <button type="button" className="btn btn-action btn-fold hud-btn" onClick={() => handleAction('fold', 0, true)}>
                 Fold
               </button>
-              <div className="raise-row">
-                <button
-                  type="button"
-                  className="btn btn-action btn-sim"
-                  onClick={() => handleAction('raise', raiseAmount, false)}
-                >
-                  Raise
-                </button>
-                <input
-                  type="number"
-                  min="0.01"
-                  step="0.1"
-                  value={raiseAmount}
-                  onChange={(e) => setRaiseAmount(Number(e.target.value) || 0.2)}
-                  title="Raise amount"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ---- Voice betting for ALL players ---- */}
-        {currentActor != null && (
-          <div className="voice-betting-panel">
-            <div className="voice-betting-header">
-              <button
-                type="button"
-                className={`btn ${listening ? 'btn-voice-stop' : 'btn-voice-listen'}`}
-                onClick={listening ? stopListening : startListening}
-              >
-                {listening ? '⏹ Stop Listening' : '🎤 Voice Input'}
+              <button type="button" className="btn btn-action btn-raise hud-btn" onClick={() => handleAction('raise', raiseAmount, true)}>
+                Raise
               </button>
-              <span className="voice-betting-hint">
-                {listening
-                  ? `Listening for Seat ${currentActor}… say "call", "fold", "raise 1 dollar", etc.`
-                  : 'Click to use voice commands for any player\'s turn'}
-              </span>
+              <input
+                type="number"
+                className="hud-raise-input"
+                min="0.01"
+                step="0.1"
+                value={raiseAmount}
+                onChange={(e) => setRaiseAmount(Number(e.target.value) || 0.2)}
+              />
             </div>
+          )}
 
-            {voiceStatus && (
-              <p className="voice-status">{voiceStatus}</p>
-            )}
+          {!isMyTurn && (
+            <div className="hud-row">
+              <span className="hud-seat-label">Seat {currentActor}</span>
+              {canCheck && (
+                <button type="button" className="btn btn-action btn-sim hud-btn" onClick={() => handleAction('check', 0, false)}>
+                  Check
+                </button>
+              )}
+              {costToCall > 0 && (
+                <button type="button" className="btn btn-action btn-sim hud-btn" onClick={() => handleAction('call', costToCall, false)}>
+                  Call {formatMoney(costToCall)}
+                </button>
+              )}
+              <button type="button" className="btn btn-action btn-sim hud-btn" onClick={() => handleAction('fold', 0, false)}>
+                Fold
+              </button>
+              <button type="button" className="btn btn-action btn-sim hud-btn" onClick={() => handleAction('raise', raiseAmount, false)}>
+                Raise
+              </button>
+              <input
+                type="number"
+                className="hud-raise-input"
+                min="0.01"
+                step="0.1"
+                value={raiseAmount}
+                onChange={(e) => setRaiseAmount(Number(e.target.value) || 0.2)}
+              />
+            </div>
+          )}
 
-            {transcript && (
-              <div className="voice-transcript">
-                <label>Transcript:</label>
-                <div className="transcript-box">{transcript}</div>
-              </div>
-            )}
+          <button
+            type="button"
+            className={`btn hud-btn ${listening ? 'btn-voice-stop' : 'btn-voice-listen'}`}
+            onClick={listening ? stopListening : startListening}
+          >
+            {listening ? '⏹ Stop' : '🎤 Voice'}
+          </button>
 
-            {voiceError && (
-              <p className="voice-error">{voiceError}</p>
-            )}
-          </div>
-        )}
-      </div>
+          {listening && (
+            <div className="hud-voice-line">
+              {voiceStatus || 'Listening…'}
+            </div>
+          )}
+        </div>
+      )}
+
     </div>
   )
 }
