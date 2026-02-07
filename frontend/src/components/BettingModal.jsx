@@ -1,5 +1,3 @@
-import { useEffect, useState } from 'react'
-
 const STREET_LABELS = {
   preflop: 'Preflop',
   flop: 'Flop',
@@ -15,39 +13,20 @@ function formatMoney(val) {
 export default function BettingModal({
   open,
   street,
-  defaultCostToCall = 0.2,
+  costToCall = 0.2,
   recommendation = null,
-  toCall = null,
-  onCostToCallChange,
   onSubmit,
 }) {
-  const [costToCall, setCostToCall] = useState(0.2)
-
-  // Only initialize when modal opens or street changes — don't reset while user is typing
-  useEffect(() => {
-    if (open && street) {
-      const value = Number(defaultCostToCall) || 0.2
-      setCostToCall(value)
-      onCostToCallChange?.(street, value)
-    }
-  }, [open, street])
-
   if (!open || !street) {
     return null
   }
 
-  const handleCostChange = (value) => {
-    const num = Number(value) || 0
-    setCostToCall(num)
-    onCostToCallChange?.(street, num)
-  }
-
   const handleCall = () => {
-    onSubmit(street, costToCall, true)
+    onSubmit(street, Number(costToCall) || 0, true)
   }
 
   const handleFold = () => {
-    onSubmit(street, costToCall, false)
+    onSubmit(street, 0, false)
   }
 
   const showRecommendation = recommendation && (recommendation === 'call' || recommendation === 'fold')
@@ -56,22 +35,12 @@ export default function BettingModal({
     <div className="modal-overlay visible" role="dialog" aria-modal="true">
       <div className="modal-box">
         <h2>{STREET_LABELS[street] || street} — amount to call</h2>
-        <p>Enter how much you need to put in to call on this street. Then choose Call or Fold.</p>
-        <div className="modal-row">
-          <label>Amount to call</label>
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            value={costToCall}
-            onChange={(e) => handleCostChange(e.target.value)}
-          />
-        </div>
+        <p>Cost to call (from table): {formatMoney(costToCall)}. Choose Call or Fold.</p>
         {showRecommendation && (
           <p className={`modal-recommendation equity-verdict ${recommendation}`}>
-            {recommendation === 'call' && <>Recommendation: CALL {formatMoney(toCall ?? costToCall)}</>}
+            {recommendation === 'call' && <>Recommendation: CALL {formatMoney(costToCall)}</>}
             {recommendation === 'fold' && (
-              <>Recommendation: FOLD (need {formatMoney(toCall ?? costToCall)} to call)</>
+              <>Recommendation: FOLD (need {formatMoney(costToCall)} to call)</>
             )}
           </p>
         )}
