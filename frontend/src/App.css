@@ -4,6 +4,34 @@
   margin: 0 auto;
 }
 
+.app-nav {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.nav-tab {
+  padding: 8px 16px;
+  background: #16213e;
+  color: #a0a0c0;
+  border: 1px solid #2a2a4a;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.nav-tab:hover {
+  background: #1a2744;
+  color: #eee;
+}
+
+.nav-tab.active {
+  background: #3498db;
+  color: #fff;
+  border-color: #3498db;
+}
+
 .app-header {
   margin-bottom: 24px;
 }
