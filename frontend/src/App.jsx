@@ -156,7 +156,7 @@ function App() {
               <Tab
                 key={t}
                 value={t}
-                label={t === 'movelog' ? 'Move Log' : t === 'bots' ? 'Bots' : t.charAt(0).toUpperCase() + t.slice(1)}
+                label={t === 'movelog' ? 'Assessment' : t === 'bots' ? 'Bots' : t.charAt(0).toUpperCase() + t.slice(1)}
                 disabled={t === 'bots' && moveLog.length === 0}
               />
             ))}
@@ -206,7 +206,7 @@ function App() {
             <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, py: 4 }}>
               <Typography variant="h6" color="text.secondary">Bots tab is locked</Typography>
               <Typography variant="body2" color="text.secondary" textAlign="center">
-                Make at least one move in the Game tab to unlock the Bots. Your Move Log builds a behavioral profile so bots can calibrate to your decision patterns.
+                Make at least one move in the Game tab to unlock the Bots. Your assessment profile (entertainment × healthcare) is used so bots can calibrate to your decision patterns.
               </Typography>
             </Box>
           ) : (

@@ -622,3 +622,190 @@
 .detail-row strong {
   color: #eee;
 }
+
+/* ===== Clinical / psychiatry assessment theme (entertainment × healthcare) ===== */
+.move-log--clinical .assessment-page-title {
+  letter-spacing: -0.02em;
+}
+
+.section-title--clinical {
+  color: #0d9488 !important;
+  font-weight: 600;
+}
+
+.section-title--clinical::before {
+  background: linear-gradient(180deg, #0d9488, #14b8a6);
+}
+
+.insights-section--clinical .insight-card--clinical {
+  background: linear-gradient(145deg, #0f172a 0%, #1e293b 100%);
+  border-color: #334155;
+}
+
+.insights-section--clinical .insight-card--clinical::before {
+  background: linear-gradient(90deg, #0d9488, #14b8a6);
+  opacity: 0.9;
+}
+
+.insight-value--clinical {
+  color: #14b8a6 !important;
+  text-shadow: 0 0 16px rgba(20, 184, 166, 0.35);
+}
+
+.insight-card--clinical:hover {
+  box-shadow: 0 12px 28px rgba(13, 148, 136, 0.15);
+}
+
+/* Psychological profile card — report-style */
+.profile-card-clinical {
+  background: linear-gradient(180deg, #0f172a 0%, #1e293b 50%, #0f172a 100%) !important;
+  border: 1px solid #334155 !important;
+  border-left: 4px solid #0d9488 !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+}
+
+.profile-card--clinical {
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.profile-avatar--clinical .profile-adherence-ring {
+  background: conic-gradient(
+    #14b8a6 0deg,
+    #14b8a6 calc(var(--adherence) * 3.6deg),
+    #475569 calc(var(--adherence) * 3.6deg),
+    #475569 360deg
+  );
+}
+
+.profile-metric-pill {
+  background: rgba(30, 41, 59, 0.8) !important;
+  border: 1px solid #334155 !important;
+}
+
+.profile-metric-value {
+  color: #e2e8f0 !important;
+}
+
+.btn-clinical-report {
+  background: linear-gradient(135deg, #0d9488, #0f766e) !important;
+  color: #fff !important;
+}
+
+.btn-clinical-report:hover {
+  background: linear-gradient(135deg, #0f766e, #115e59) !important;
+  box-shadow: 0 4px 20px rgba(13, 148, 136, 0.4);
+}
+
+.clinical-note-block {
+  background: rgba(15, 23, 42, 0.5);
+  border-radius: 8px;
+  padding: 12px 14px !important;
+  border-color: #334155 !important;
+}
+
+.clinical-chip-risk {
+  background: rgba(245, 158, 11, 0.15) !important;
+  color: #f59e0b !important;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+/* Summary callout — clinical disclaimer */
+.summary-callout--clinical .summary-callout-inner {
+  background: linear-gradient(145deg, #0f172a 0%, #1e293b 100%);
+  border: 1px solid #334155;
+  border-left: 4px solid #0d9488;
+}
+
+.summary-callout--clinical .summary-callout-label {
+  color: #14b8a6;
+  font-weight: 600;
+}
+
+.summary-callout--clinical .summary-callout-text {
+  color: #cbd5e1;
+  line-height: 1.6;
+}
+
+/* Card headers in clinical view */
+.move-log--clinical .card-clinical .MuiCardContent-root {
+  border-top: 1px solid #334155;
+}
+
+/* Dialog — report feel */
+.dialog-clinical .MuiDialogTitle-root {
+  background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+  color: #e2e8f0;
+}
+
+.dialog-clinical .MuiDialogContent-root {
+  background: #1e293b;
+}
+
+/* ===== Psych diagrams (professional assessment look) ===== */
+.psych-report-header {
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.5) 100%);
+}
+
+.psych-section-num {
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+}
+
+.psych-section-num::before {
+  content: '';
+  display: inline-block;
+  width: 4px;
+  height: 14px;
+  background: linear-gradient(180deg, #0d9488, #14b8a6);
+  border-radius: 2px;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+.psych-diagram-wrap {
+  border-radius: 12px;
+}
+
+.psych-diagram {
+  width: 100%;
+}
+
+.psych-radar-svg {
+  width: 100%;
+  max-width: 240px;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
+
+.psych-radar-label {
+  font-size: 10px;
+  fill: #94a3b8;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.psych-scale {
+  min-width: 0;
+}
+
+.psych-quality-svg {
+  width: 100%;
+  max-width: 200px;
+  height: auto;
+  display: block;
+}
+
+.psych-quality-label {
+  font-size: 9px;
+  fill: #64748b;
+  text-transform: capitalize;
+}
+
+/* Diagram containers — subtle border and caption */
+.move-log--clinical .psych-diagram-wrap {
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+}
