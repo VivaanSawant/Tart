@@ -94,6 +94,9 @@ export default function TableSimulatorView({
   equityTurn = null,
   equityRiver = null,
   onHeroMove = null,
+  trainMode = false,
+  opponentCards = null,
+  playerAnalyses = null,
 }) {
   const [state, setState] = useState(null)
   const [raiseAmount, setRaiseAmount] = useState(0.4)
@@ -481,6 +484,8 @@ export default function TableSimulatorView({
             const isBB = seat === state.bb_seat
             const bet = state.player_bets_this_street?.[String(seat)] ?? 0
             const isHero = seat === heroSeat
+            const oppCards = trainMode && opponentCards && opponentCards[String(seat)]
+            const analysis = trainMode && playerAnalyses && playerAnalyses[String(seat)]
 
             return (
               <div
@@ -521,6 +526,30 @@ export default function TableSimulatorView({
                         )
                       })}
                     </div>
+                  </div>
+                )}
+                {trainMode && oppCards && !isHero && inHand && (
+                  <div className="opponent-hole-cards">
+                    <div className="opponent-hole-slots">
+                      {[oppCards[0] || null, oppCards[1] || null].map((card, ci) => {
+                        const img = card ? getCardImage(card) : null
+                        return (
+                          <div key={ci} className={`opponent-hole-slot${img ? ' opponent-hole-slot--filled' : ''}`}>
+                            {img && <img src={img} alt={card} className="opponent-hole-img" />}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+                {trainMode && analysis && (
+                  <div className="seat-recommendation">
+                    <span className={`seat-rec-badge ${(analysis.recommendation || '').toLowerCase()}`}>
+                      {analysis.recommendation || '—'}
+                    </span>
+                    {analysis.equity != null && (
+                      <span className="seat-rec-equity">{Number(analysis.equity).toFixed(1)}%</span>
+                    )}
                   </div>
                 )}
               </div>

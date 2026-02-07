@@ -179,6 +179,87 @@
   z-index: 10;
 }
 
+/* Train mode: opponent hole cards (visible at each seat) */
+.opponent-hole-cards {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.opponent-hole-slots {
+  display: flex;
+  gap: 2px;
+}
+
+.opponent-hole-slot {
+  width: 36px;
+  height: 51px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 4px;
+  background: rgba(15, 15, 26, 0.7);
+  overflow: hidden;
+}
+
+.opponent-hole-slot--filled {
+  border-color: transparent;
+  background: transparent;
+}
+
+.opponent-hole-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+/* Train mode: per-seat recommendation + equity */
+.seat-recommendation {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.seat-rec-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.seat-rec-badge.fold {
+  background: #e74c3c;
+  color: #fff;
+}
+
+.seat-rec-badge.call {
+  background: #2ecc71;
+  color: #0f1729;
+}
+
+.seat-rec-badge.raise {
+  background: #f1c40f;
+  color: #0f1729;
+}
+
+.seat-rec-badge.check {
+  background: #3498db;
+  color: #fff;
+}
+
+.seat-rec-badge.no_bet {
+  background: #555;
+  color: #ccc;
+}
+
+.seat-rec-equity {
+  font-size: 0.65rem;
+  color: #b0b0d0;
+}
+
 .seat {
   position: absolute;
   display: flex;

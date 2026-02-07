@@ -41,10 +41,13 @@ function App() {
     potInfo: null,
     table: null,
     playStyle: 'neutral',
+    trainOpponentCards: null,
+    trainPlayerAnalyses: null,
   })
 
   const handleFetchState = async () => {
-    const data = await fetchState()
+    const train = activeTab === 'train'
+    const data = await fetchState({ train })
     if (!data) return
     setGameState({
       holeCards: data.hole_cards || [],
@@ -62,6 +65,8 @@ function App() {
       potInfo: data.pot || null,
       table: data.table || null,
       playStyle: data.play_style || 'neutral',
+      trainOpponentCards: data.train_opponent_cards || null,
+      trainPlayerAnalyses: data.train_player_analyses || null,
     })
   }
 
@@ -69,7 +74,7 @@ function App() {
     handleFetchState()
     const interval = setInterval(handleFetchState, 500)
     return () => clearInterval(interval)
-  }, [])
+  }, [activeTab])
 
 
   const handleClear = async () => {
@@ -105,6 +110,13 @@ function App() {
     <CameraPermission>
     <div className="app">
       <nav className="app-nav">
+        <button
+          type="button"
+          className={`nav-tab ${activeTab === 'train' ? 'active' : ''}`}
+          onClick={() => setActiveTab('train')}
+        >
+          Train Yourself
+        </button>
         <button
           type="button"
           className={`nav-tab ${activeTab === 'game' ? 'active' : ''}`}
@@ -207,7 +219,10 @@ function App() {
             equityFlop={gameState.equityFlop}
             equityTurn={gameState.equityTurn}
             equityRiver={gameState.equityRiver}
-            onHeroMove={handleHeroMove}
+            onHeroMove={activeTab === 'train' ? undefined : handleHeroMove}
+            trainMode={activeTab === 'train'}
+            opponentCards={gameState.trainOpponentCards}
+            playerAnalyses={gameState.trainPlayerAnalyses}
           />
         </div>
       )}

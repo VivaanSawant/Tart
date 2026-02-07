@@ -9,8 +9,10 @@ async function jsonFetch(url, options = {}) {
   return res.json()
 }
 
-export async function fetchState() {
-  return jsonFetch('/api/state')
+export async function fetchState(opts = {}) {
+  const train = opts.train ? '1' : ''
+  const qs = train ? `?train=${train}` : ''
+  return jsonFetch(`/api/state${qs}`)
 }
 
 export async function lockHole(card) {

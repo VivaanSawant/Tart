@@ -5,6 +5,7 @@ Flop (3 cards), turn (1), and river (1) auto-lock when stable for 2 seconds.
 
 import json
 import os
+import random
 import sys
 import threading
 import time
@@ -349,6 +350,21 @@ def _pot_state_from_table(table_state, to_call: float):
     return _TablePotAdapter()
 
 
+# Full deck for train mode: card strings matching frontend ("10" not "T" for ten)
+_RANKS_DECK = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"]
+_FULL_DECK = [r + s for r in _RANKS_DECK for s in "shdc"]
+
+
+def _normalize_card(c: str) -> str:
+    """Normalize to deck format (e.g. Th -> 10h) for set membership."""
+    if not c or not isinstance(c, str):
+        return ""
+    s = c.strip()
+    if len(s) >= 2 and s[0].upper() == "T" and s[1:2].lower() in "shdc":
+        return "10" + s[1:].lower()
+    return s
+
+
 def _table_state_to_dict(s) -> dict:
     return {
         "dealer_seat": s.dealer_seat,
@@ -500,7 +516,68 @@ def api_state():
         half_pot = max(0.2, 0.5 * pot_total)
         suggested_raise = round(half_pot, 2)
 
-    return jsonify({
+    # Train mode: assign random opponent hole cards (excluding hero + board), show all recommendations
+    train_opponent_cards = None
+    train_player_analyses = None
+    if request.args.get("train") == "1" and len(hole) == 2:
+        hero_seat = ts.config.hero_seat
+        players_in_hand = list(table_state.players_in_hand)
+        opponent_seats = [s for s in players_in_hand if s != hero_seat]
+        used_set = set(_normalize_card(c) for c in hole + flop + ([turn] if turn else []) + ([river] if river else []))
+        deck = [c for c in _FULL_DECK if c not in used_set]
+        with shared_state["lock"]:
+            train_hand_id = shared_state.get("train_hand_id")
+            stored_cards = shared_state.get("train_opponent_cards") or {}
+        hand_number = table_state.hand_number
+        if train_hand_id != hand_number or not all(s in stored_cards for s in opponent_seats) or len(deck) < 2 * len(opponent_seats):
+            stored_cards = {}
+            if len(deck) >= 2 * len(opponent_seats):
+                random.shuffle(deck)
+                idx = 0
+                for seat in opponent_seats:
+                    stored_cards[seat] = [deck[idx], deck[idx + 1]]
+                    idx += 2
+            with shared_state["lock"]:
+                shared_state["train_hand_id"] = hand_number
+                shared_state["train_opponent_cards"] = stored_cards
+        train_opponent_cards = {str(k): v for k, v in stored_cards.items()}
+
+        n_players_equity = max(2, len(players_in_hand))
+        pot_state = _pot_state_from_table(table_state, to_call)
+        train_player_analyses = {}
+        for seat in players_in_hand:
+            if seat == hero_seat:
+                eq_pre = analysis.get("equity_preflop")
+                eq_f = equity_flop
+                eq_t = equity_turn
+                eq_r = equity_river
+                eq_street = equity_for_street
+                rec, rec_reason = verdict, reason
+            else:
+                opp_hole = stored_cards.get(seat)
+                if not opp_hole or len(opp_hole) != 2:
+                    continue
+                eq_pre = equitypredict.equity_preflop(opp_hole, n_players_equity)
+                eq_f, eq_t, eq_r = equitypredict.compute_equities(
+                    opp_hole, flop, turn, river, n_players_equity
+                )
+                eq_street = pot_calc.get_equity_for_street(
+                    current_street, eq_f, eq_t, eq_r, equity_preflop=eq_pre
+                )
+                rec, rec_reason = pot_calc.recommendation(
+                    eq_street, current_street, pot_state, aggression="neutral"
+                )
+            train_player_analyses[str(seat)] = {
+                "equity_preflop": eq_pre,
+                "equity_flop": eq_f,
+                "equity_turn": eq_t,
+                "equity_river": eq_r,
+                "equity": eq_street,
+                "recommendation": rec,
+                "recommendation_reason": rec_reason or "",
+            }
+
+    payload = {
         "hole_cards": hole,
         "flop_cards": flop,
         "turn_card": turn,
@@ -524,7 +601,13 @@ def api_state():
             "suggested_raise": suggested_raise,
         },
         "table": _table_state_to_dict(table_state),
-    })
+    }
+    if train_opponent_cards is not None:
+        payload["train_opponent_cards"] = train_opponent_cards
+    if train_player_analyses is not None:
+        payload["train_player_analyses"] = train_player_analyses
+
+    return jsonify(payload)
 
 
 @app.route("/api/lock_hole", methods=["POST"])
