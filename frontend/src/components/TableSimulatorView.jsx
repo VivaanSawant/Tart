@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { fetchTableState, tableAction, tableReset, tableSetHero } from '../api/backend'
+import { fetchTableState, tableAction, tableReset } from '../api/backend'
+import { getCardImage } from '../utils/cardImages'
 import './TableSimulator.css'
 
 function formatMoney(val) {
@@ -198,15 +199,22 @@ export default function TableSimulatorView({
         <div className="table-felt">
           <div className="table-center">
             <div className="table-pot">Pot {formatMoney(state.pot)}</div>
-            <div className="table-street">{state.street}</div>
-            <div className="table-hand">Hand #{state.hand_number}</div>
-            <div className="table-blinds">
-              D:{state.dealer_seat} SB:{state.sb_seat} BB:{state.bb_seat}
-              <span className="blinds-hint"> (rotate each hand)</span>
+            <div className="table-board">
+              {[
+                flopCards[0] || null,
+                flopCards[1] || null,
+                flopCards[2] || null,
+                turnCard,
+                riverCard,
+              ].map((card, i) => {
+                const img = card ? getCardImage(card) : null
+                return (
+                  <div key={i} className={`board-card-slot${img ? ' board-card-slot--filled' : ''}`}>
+                    {img && <img src={img} alt={card} className="board-card-img" />}
+                  </div>
+                )
+              })}
             </div>
-            {heroPosition && (
-              <div className="table-hero-pos">You: {heroPosition}</div>
-            )}
           </div>
 
           {seatPositions.map(({ seat, x, y }) => {

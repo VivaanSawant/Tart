@@ -8,10 +8,12 @@ import {
   lockHoleAll,
   setPlayStyle,
 } from './api/backend'
+
 import CameraPermission from './components/CameraPermission'
 import CameraSelector from './components/CameraSelector'
 import CardsPanel from './components/CardsPanel'
 import EquityPanel from './components/EquityPanel'
+import LandingPage from './components/LandingPage'
 import PotOddsPanel from './components/PotOddsPanel'
 import TableSimulatorView from './components/TableSimulatorView'
 import VideoFeed from './components/VideoFeed'
@@ -22,6 +24,7 @@ const BUY_IN = 10
 
 
 function App() {
+  const [showLanding, setShowLanding] = useState(true)
   const [gameState, setGameState] = useState({
     holeCards: [],
     availableCards: [],
@@ -102,42 +105,43 @@ function App() {
     ? 'Show your 2 hole cards to the camera, then click Lock hole.'
     : 'Hole full (2/2). Click a hole card to remove it, or Clear hand for new hand.'
 
+  if (showLanding) {
+    return <LandingPage onEnter={() => setShowLanding(false)} />
+  }
+
   return (
     <CameraPermission>
     <div className="app">
-      <header className="app-header">
-        <h1>PokerPlaya</h1>
-        <p className="subtitle">
-          CV detects your cards and board. Table sim tracks flow and bets. Equity and recommendations
-          use players still in hand.
-        </p>
-      </header>
+      <div className="video-pip">
+        <CameraSelector />
+        <VideoFeed src="/video_feed" />
+      </div>
 
-      <div className="layout">
-        <div className="main-area">
-          <CameraSelector />
-          <div className="video-wrap">
-            <VideoFeed src="/video_feed" />
+      <div className="table-hero">
+        <TableSimulatorView
+          holeCount={gameState.holeCards.length}
+          flopCards={gameState.flopCards}
+          turnCard={gameState.turnCard}
+          riverCard={gameState.riverCard}
+          potInfo={gameState.potInfo}
+        />
+      </div>
+
+      <div className="below-fold">
+        <div className="layout">
+          <div className="main-area">
+            <CardsPanel
+              holeCards={gameState.holeCards}
+              availableCards={gameState.availableCards}
+              flopCards={gameState.flopCards}
+              turnCard={gameState.turnCard}
+              riverCard={gameState.riverCard}
+              canLockHole={canLockHole}
+              holeHint={holeHint}
+              onLockHole={handleLockHole}
+              onLockHoleAll={handleLockHoleAll}
+            />
           </div>
-          <TableSimulatorView
-            holeCount={gameState.holeCards.length}
-            flopCount={gameState.flopCards.length}
-            hasTurn={gameState.turnCard != null}
-            hasRiver={gameState.riverCard != null}
-            potInfo={gameState.potInfo}
-          />
-          <CardsPanel
-            holeCards={gameState.holeCards}
-            availableCards={gameState.availableCards}
-            flopCards={gameState.flopCards}
-            turnCard={gameState.turnCard}
-            riverCard={gameState.riverCard}
-            canLockHole={canLockHole}
-            holeHint={holeHint}
-            onLockHole={handleLockHole}
-            onLockHoleAll={handleLockHoleAll}
-          />
-        </div>
 
         <aside className="sidebar panel">
           <section className="play-style-section">
