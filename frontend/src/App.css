@@ -1,29 +1,53 @@
 .app {
-  padding: 16px;
+  padding: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
 }
 
-h1 {
-  margin: 0 0 8px 0;
-  font-size: 1.5rem;
-  font-weight: 600;
+.app-header {
+  margin-bottom: 24px;
+}
+
+.app-header h1 {
+  margin: 0 0 6px 0;
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 .subtitle {
   color: #888;
   font-size: 0.9rem;
-  margin-bottom: 20px;
+  margin: 0;
 }
 
 .layout {
   display: grid;
-  grid-template-columns: 1fr 320px;
-  gap: 20px;
+  grid-template-columns: 1fr 360px;
+  gap: 24px;
   align-items: start;
 }
 
-@media (max-width: 900px) {
+.main-area {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.cards-section {
+  background: #16213e;
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid #2a2a4a;
+}
+
+@media (max-width: 1000px) {
   .layout {
     grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    order: -1;
   }
 }
 
@@ -40,6 +64,30 @@ h1 {
   height: auto;
   max-height: 70vh;
   object-fit: contain;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  position: sticky;
+  top: 20px;
+}
+
+.sidebar.panel {
+  padding: 20px;
+}
+
+.sidebar .section {
+  margin-bottom: 24px;
+}
+
+.sidebar .section:last-of-type {
+  margin-bottom: 16px;
+}
+
+.btn-clear {
+  margin-top: 4px;
 }
 
 .panel {
@@ -162,6 +210,93 @@ h1 {
   background: #2ecc71;
 }
 
+/* Equity heatmap & bet recommendations */
+:root {
+  --equity-low: #e74c3c;
+  --equity-medium-low: #e67e22;
+  --equity-medium: #f1c40f;
+  --equity-medium-high: #2ecc71;
+  --equity-high: #27ae60;
+}
+
+.equity-panel .equity-subtitle {
+  font-size: 0.85rem;
+  color: #888;
+  margin: 0 0 16px 0;
+}
+
+.equity-heatmap {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.equity-bar-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.equity-bar-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.9rem;
+}
+
+.equity-street {
+  font-weight: 600;
+  color: #a0a0c0;
+}
+
+.equity-value {
+  font-weight: 600;
+  color: #eee;
+}
+
+.equity-bar-track {
+  height: 12px;
+  background: #0f0f1a;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.equity-bar-fill {
+  height: 100%;
+  border-radius: 6px;
+  transition: width 0.3s ease, background-color 0.2s;
+}
+
+.bet-recommendations h3 {
+  font-size: 0.9rem;
+  margin: 0 0 10px 0;
+  color: #a0a0c0;
+}
+
+.bet-rec-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bet-rec-row {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 10px;
+  align-items: start;
+  font-size: 0.9rem;
+}
+
+.bet-rec-street {
+  font-weight: 600;
+  color: #3498db;
+}
+
+.bet-rec-text {
+  color: #ccc;
+}
+
 .equity-row {
   margin: 4px 0;
   font-size: 0.95rem;
@@ -188,6 +323,44 @@ h1 {
 
 .recommendation.no_bet {
   color: #888;
+}
+
+.game-info {
+  display: flex;
+  gap: 16px;
+  font-size: 0.85rem;
+  color: #a0a0c0;
+  margin-bottom: 12px;
+}
+
+.bet-amount-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px;
+  margin-bottom: 16px;
+  background: linear-gradient(135deg, #1a2744 0%, #0f1729 100%);
+  border: 2px solid #3498db;
+  border-radius: 12px;
+}
+
+.bet-amount-label {
+  font-size: 0.9rem;
+  color: #a0a0c0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+
+.bet-amount-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #2ecc71;
+}
+
+.bet-amount-value.bet-amount-check {
+  font-size: 1.1rem;
+  color: #3498db;
 }
 
 .pot-section {
@@ -314,6 +487,46 @@ h1 {
 
 .modal-actions .btn-bet:hover {
   background: #8e44ad;
+}
+
+.modal-actions .btn-fold {
+  background: #e74c3c;
+}
+
+.modal-actions .btn-fold:hover {
+  background: #c0392b;
+}
+
+.equity-bet-recommendation {
+  margin-top: 16px;
+  padding: 12px;
+  background: #0f0f1a;
+  border-radius: 8px;
+  border-left: 4px solid #3498db;
+}
+
+.equity-bet-recommendation h3 {
+  margin: 0 0 8px 0;
+  font-size: 0.9rem;
+  color: #a0a0c0;
+}
+
+.equity-verdict {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.equity-verdict.call {
+  color: #2ecc71;
+}
+
+.equity-verdict.fold {
+  color: #e74c3c;
+}
+
+.equity-verdict.no_bet {
+  color: #888;
 }
 
 .modal-actions input[type='number'] {

@@ -15,9 +15,9 @@ STREETS = ("preflop", "flop", "turn", "river")
 
 @dataclass
 class PotState:
-    """Pot and bets per street. Amounts in same units (e.g. big blinds or dollars)."""
-    starting_pot: float = 0.0  # e.g. blinds already in (1.5 BB)
-    preflop: dict[str, float] = field(default_factory=lambda: {"opponent": 0.0, "hero": 0.0})
+    """Pot and bets per street. Amounts in dollars (e.g. 0.10/0.20 blinds)."""
+    starting_pot: float = 0.30  # Default: 10¢ SB + 20¢ BB
+    preflop: dict[str, float] = field(default_factory=lambda: {"opponent": 0.2, "hero": 0.0})  # BB default
     flop: dict[str, float] = field(default_factory=lambda: {"opponent": 0.0, "hero": 0.0})
     turn: dict[str, float] = field(default_factory=lambda: {"opponent": 0.0, "hero": 0.0})
     river: dict[str, float] = field(default_factory=lambda: {"opponent": 0.0, "hero": 0.0})
@@ -137,13 +137,13 @@ def get_equity_for_street(
     equity_flop: float | None,
     equity_turn: float | None,
     equity_river: float | None,
+    equity_preflop: float | None = None,
 ) -> float | None:
     """
     Return the appropriate equity for the given street.
-    Preflop has no board-based equity from our module; caller can pass None or use a separate estimate.
     """
     if street == "preflop":
-        return None
+        return equity_preflop
     if street == "flop":
         return equity_flop
     if street == "turn":
