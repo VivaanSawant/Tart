@@ -44,7 +44,8 @@ const WORD_TO_NUM = {
 }
 
 function spokenToNumber(str) {
-  const s = str.toLowerCase().trim()
+  const s = str.replace(/\$/g, '').toLowerCase().trim()
+  if (!s) return null
   const direct = parseFloat(s)
   if (!isNaN(direct)) return direct
   let total = 0
@@ -61,8 +62,12 @@ function spokenToNumber(str) {
 
 function parseVoiceCommand(transcript) {
   if (!transcript) return null
-  // Strip punctuation and normalize
-  const t = transcript.toLowerCase().replace(/[.,!?;:'"]/g, '').trim()
+  // Strip currency symbols, sentence-ending periods (preserve decimal points), and other punctuation
+  const t = transcript.toLowerCase()
+    .replace(/\$/g, '')             // strip dollar signs
+    .replace(/\.(?=\s|$)/g, '')     // strip only sentence-ending periods, keep decimal points like 1.50
+    .replace(/[,!?;:'"]/g, '')      // strip other punctuation
+    .trim()
 
   // Reject if too short (noise) or too long (conversation, not a command)
   if (t.length < 3 || t.split(/\s+/).length > 6) return null
@@ -287,7 +292,10 @@ export default function TableSimulatorView({
     } else if (action === 'call') {
       amount = cmd.amount != null ? cmd.amount : cost
       if (amount <= 0) amount = cost
-    } else if (action === 'raise') { amount = cmd.amount || 0.2 }
+    } else if (action === 'raise') {
+      if (cmd.amount != null && cmd.amount > 0) { amount = cmd.amount }
+      else { setVoiceError('Could not parse raise amount — say e.g. "raise 1 dollar"'); return }
+    }
     else if (action === 'allin') { action = 'raise'; amount = 999 }
     setVoiceStatus(`Voice → Seat ${actor}: ${action.toUpperCase()} ${amount > 0 ? formatMoney(amount) : ''}`)
     const res = await tableAction(actor, action, amount, isHero)
@@ -324,7 +332,7 @@ export default function TableSimulatorView({
           } catch (err) { if (!stoppedRef.current) { setVoiceError(err.message); setVoiceStatus('Error — see below') } }
         }
         mediaRecorderRef.current = mr; mr.start()
-        setTimeout(() => { if (mr.state === 'recording') mr.stop(); if (!stoppedRef.current) startChunk() }, 3000)
+        setTimeout(() => { if (mr.state === 'recording') mr.stop(); if (!stoppedRef.current) startChunk() }, 5000)
       }
       startChunk()
     } catch (err) { setVoiceError('Mic access denied: ' + err.message); setListening(false) }

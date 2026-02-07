@@ -8,10 +8,45 @@ Set DEDALUS_API_KEY in the environment or pass api_key= to transcribe_audio().
 """
 
 import os
+import re
 import requests
 
 DEDALUS_API_URL = "https://api.dedaluslabs.ai/v1/audio/transcriptions"
 DEDALUS_MODEL = "openai/whisper-1"
+
+# Common Whisper hallucinations during silence — discard these
+_HALLUCINATION_PATTERNS = [
+    r"^\.+$",                        # just dots/periods
+    r"^[,.\s]+$",                    # just punctuation
+    r"^thank(s|\s+you)",             # "Thank you", "Thanks"
+    r"^bye",                         # "Bye", "Bye-bye"
+    r"^(thanks|thank you)\s+for\s+watching",
+    r"^(thanks|thank you)\s+for\s+listening",
+    r"^please\s+subscribe",
+    r"^see\s+you",
+    r"^voil[aà]",
+    r"^(good|great)\s+(bye|night|morning)",
+    r"^(hello|hi|hey)\b",
+    r"^(okay|ok|right|alright|so|well|um|uh|hmm)\s*[.!]?\s*$",
+    r"^you$",
+    r"^the\s",
+    r"^(of|and|the|a|an|in|to|for|is|it)\s+\w+[.!]?$",  # common filler fragments
+    r"^colors?[.!]?\s*$",
+    r"^(silence|music|applause)",
+    r"^\[.*\]$",                     # bracketed descriptions like [music]
+    r"^(i|we|he|she|they)\s+(don'?t|can'?t|won'?t|didn'?t)",  # negations = not commands
+]
+_HALLUCINATION_RES = [re.compile(p, re.IGNORECASE) for p in _HALLUCINATION_PATTERNS]
+
+
+def _is_hallucination(text: str) -> bool:
+    """Return True if text looks like a Whisper hallucination, not real speech."""
+    t = text.strip()
+    if len(t) < 3:
+        return True
+    if len(t.split()) > 8:
+        return True  # real commands are short
+    return any(r.search(t) for r in _HALLUCINATION_RES)
 
 
 def transcribe_audio(
@@ -47,7 +82,7 @@ def transcribe_audio(
 
     with open(file_path, "rb") as f:
         files = {"file": (os.path.basename(file_path), f)}
-        data = {"model": model, "language": language}
+        data = {"model": model, "language": language, "temperature": "0"}
         if prompt:
             data["prompt"] = prompt
 
@@ -61,7 +96,10 @@ def transcribe_audio(
 
     resp.raise_for_status()
     result = resp.json()
-    return result.get("text", "")
+    text = result.get("text", "").strip()
+    if _is_hallucination(text):
+        return ""
+    return text
 
 
 if __name__ == "__main__":
