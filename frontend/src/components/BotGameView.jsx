@@ -251,42 +251,42 @@ export default function BotGameView({ playerProfile = null }) {
         <Card sx={{ mb: 2, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }}>
           <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
             <Typography variant="subtitle1" fontWeight={700} gutterBottom>
-              Profile we&apos;re optimizing against
+              Your behavioral profile (presenting patterns)
             </Typography>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-              Built from your Move Log. Bots use this to exploit your tendencies.
+              Inferred from your Move Log. Bots are calibrated to this decision-making profile.
             </Typography>
             <Stack direction="row" flexWrap="wrap" spacing={2} sx={{ gap: 1.5 }}>
               <Box>
-                <Typography variant="caption" color="text.secondary">Aggression</Typography>
+                <Typography variant="caption" color="text.secondary">Behavioral activation</Typography>
                 <Typography variant="body2" fontWeight={600}>{playerProfile.aggression}/100</Typography>
               </Box>
               <Box>
-                <Typography variant="caption" color="text.secondary">Optimal adherence</Typography>
+                <Typography variant="caption" color="text.secondary">Rational adherence</Typography>
                 <Typography variant="body2" fontWeight={600}>{playerProfile.adherence}%</Typography>
               </Box>
               <Box>
-                <Typography variant="caption" color="text.secondary">Total moves</Typography>
+                <Typography variant="caption" color="text.secondary">Total decisions</Typography>
                 <Typography variant="body2" fontWeight={600}>{playerProfile.totalMoves}</Typography>
               </Box>
               <Box>
-                <Typography variant="caption" color="text.secondary">Bluff condition</Typography>
+                <Typography variant="caption" color="text.secondary">Risk-taking threshold</Typography>
                 <Typography variant="body2" fontWeight={600}>Raise &gt;{playerProfile.bluffConditionPercent}% over suggested</Typography>
               </Box>
               {playerProfile.bluffCount > 0 && (
                 <>
                   <Box>
-                    <Typography variant="caption" color="text.secondary">Bluffs detected</Typography>
+                    <Typography variant="caption" color="text.secondary">Low-equity aggression events</Typography>
                     <Typography variant="body2" fontWeight={600}>{playerProfile.bluffCount} ({playerProfile.bluffRate}% of raises)</Typography>
                   </Box>
                   {playerProfile.avgEquityWhenBluffing != null && (
                     <Box>
-                      <Typography variant="caption" color="text.secondary">Avg equity when bluffing</Typography>
+                      <Typography variant="caption" color="text.secondary">Avg equity in those events</Typography>
                       <Typography variant="body2" fontWeight={600}>{Number(playerProfile.avgEquityWhenBluffing).toFixed(1)}%</Typography>
                     </Box>
                   )}
                   <Box sx={{ width: '100%' }}>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>Bluffs by street</Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>By street</Typography>
                     <Stack direction="row" spacing={0.5} flexWrap="wrap">
                       {['preflop', 'flop', 'turn', 'river'].filter((st) => (playerProfile.bluffByStreet[st] || 0) > 0).map((st) => (
                         <Chip key={st} label={`${st}: ${playerProfile.bluffByStreet[st]}`} size="small" sx={{ height: 20, fontSize: '0.7rem', bgcolor: 'rgba(231,76,60,0.15)', color: '#e74c3c' }} />
@@ -321,14 +321,14 @@ export default function BotGameView({ playerProfile = null }) {
           }}
         >
           <Typography component="span" fontWeight={700} sx={{ display: 'block', mb: 0.5 }}>
-            Bots are playing to your weakness
+            Bots are calibrated to your behavioral vulnerabilities
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-            Opponents use inverse aggression — they exploit your tendency. Your moves are logged and reflected in their strategy.
+            Opponents are tuned to your decision profile: inverse activation and pattern response. Your moves are logged and reflected in their strategy.
           </Typography>
           <Box sx={{ mt: 1 }}>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-              Exploit intensity
+              Profile-response intensity
             </Typography>
             <Box
               sx={{

@@ -316,37 +316,37 @@ export default function MoveLog({ moves = [] }) {
         <div className="insights-grid">
           <div className="insight-card">
             <span className="insight-value">{stats.adherence}%</span>
-            <span className="insight-label">Optimal play rate — bots exploit deviations</span>
+            <span className="insight-label">Rational adherence — deviations inform opponent calibration</span>
           </div>
           <div className="insight-card">
             <span className="insight-value">{stats.aggression}</span>
-            <span className="insight-label">Your aggression index (0–100) — bots use inverse</span>
+            <span className="insight-label">Behavioral activation index (0–100) — opponents tuned to this</span>
           </div>
           {stats.riverPct != null && (
             <div className="insight-card">
               <span className="insight-value">{stats.riverPct}%</span>
-              <span className="insight-label">River accuracy — critical street for bots</span>
+              <span className="insight-label">River accuracy — decision quality under pressure</span>
             </div>
           )}
           {stats.avgRaiseDiff != null && (
             <div className="insight-card">
               <span className="insight-value">{stats.avgRaiseDiff >= 0 ? '+' : ''}{formatMoney(stats.avgRaiseDiff)}</span>
-              <span className="insight-label">Avg raise vs optimal — sizing tells</span>
+              <span className="insight-label">Avg raise vs optimal — sizing pattern</span>
             </div>
           )}
           {stats.foldGap !== 0 && (
             <div className="insight-card">
               <span className="insight-value">{stats.foldGap > 0 ? '+' : ''}{stats.foldGap}%</span>
-              <span className="insight-label">Fold rate vs optimal — exploitable if high</span>
+              <span className="insight-label">Fold rate vs optimal — pattern opponents may target</span>
             </div>
           )}
         </div>
       </section>
 
-      {/* Player Profile */}
+      {/* Behavioral / decision-making profile */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
-          <Typography variant="h6" gutterBottom>Player Profile</Typography>
+          <Typography variant="h6" gutterBottom>Decision-making profile</Typography>
           <div className="profile-card">
             <div className="profile-avatar">
               <span className="profile-avatar-emoji">&#x1F0CF;</span>
@@ -359,7 +359,7 @@ export default function MoveLog({ moves = [] }) {
                 { value: stats.total, label: 'Moves' },
                 { value: `${stats.adherence}%`, label: 'Optimal' },
                 { value: stats.avgEquity != null ? `${stats.avgEquity.toFixed(1)}%` : '—', label: 'Avg Equity' },
-                { value: stats.aggression, label: 'Aggression' },
+                { value: stats.aggression, label: 'Activation' },
               ].map((s) => (
                 <Paper key={s.label} sx={{ p: 1.5, textAlign: 'center', bgcolor: '#1e1e1e', minWidth: 80 }}>
                   <Typography sx={{ fontSize: '1.3rem', fontWeight: 700, color: '#eee' }}>{s.value}</Typography>
@@ -379,24 +379,24 @@ export default function MoveLog({ moves = [] }) {
               ))}
             </div>
 
-            {/* Habits & bluff behavior */}
+            {/* Behavioral patterns & risk-taking under low equity */}
             <Box sx={{ mt: 2.5, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-              <Typography variant="subtitle2" sx={{ mb: 1.5, color: 'text.secondary' }}>Habits &amp; when you bluff</Typography>
+              <Typography variant="subtitle2" sx={{ mb: 1.5, color: 'text.secondary' }}>Behavioral patterns &amp; risk-taking under low equity</Typography>
               <Stack spacing={1} sx={{ fontSize: '0.85rem' }}>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center' }}>
-                  <Typography variant="body2"><strong>Aggression:</strong> {stats.aggression}/100 — bots use inverse to exploit.</Typography>
+                  <Typography variant="body2"><strong>Behavioral activation:</strong> {stats.aggression}/100 — opponents are tuned to the inverse.</Typography>
                 </Box>
                 <Box>
-                  <Typography variant="body2"><strong>Bluff condition:</strong> Raise &gt;{Math.round(BLUFF_OVER_RAISE_PERCENT * 100)}% over suggested amount for your equity.</Typography>
+                  <Typography variant="body2"><strong>Risk-taking criterion:</strong> Raise &gt;{Math.round(BLUFF_OVER_RAISE_PERCENT * 100)}% over suggested amount for your equity.</Typography>
                 </Box>
                 {stats.bluffCount > 0 ? (
                   <>
-                    <Typography variant="body2"><strong>Bluffs this session:</strong> {stats.bluffCount} {(stats.byAction.raise || 0) > 0 ? `${stats.bluffRate}% of your raises` : '—'}</Typography>
+                    <Typography variant="body2"><strong>Low-equity aggression this session:</strong> {stats.bluffCount} {(stats.byAction.raise || 0) > 0 ? `${stats.bluffRate}% of your raises` : '—'}</Typography>
                     {stats.avgEquityWhenBluffing != null && (
-                      <Typography variant="body2"><strong>Avg equity when bluffing:</strong> {stats.avgEquityWhenBluffing.toFixed(1)}%</Typography>
+                      <Typography variant="body2"><strong>Avg equity in those decisions:</strong> {stats.avgEquityWhenBluffing.toFixed(1)}%</Typography>
                     )}
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
-                      <Typography variant="body2" component="span"><strong>Bluffs by street:</strong></Typography>
+                      <Typography variant="body2" component="span"><strong>By street:</strong></Typography>
                       {['preflop', 'flop', 'turn', 'river'].filter((st) => (stats.bluffByStreet[st] || 0) > 0).map((st) => (
                         <Chip key={st} label={`${st} ${stats.bluffByStreet[st]}`} size="small" sx={{ height: 20, fontSize: '0.7rem', bgcolor: 'rgba(231,76,60,0.2)', color: '#e74c3c' }} />
                       ))}
@@ -406,7 +406,7 @@ export default function MoveLog({ moves = [] }) {
                     </Box>
                   </>
                 ) : (
-                  <Typography variant="body2" color="text.secondary">No bluffs detected this session (raises within suggested range).</Typography>
+                  <Typography variant="body2" color="text.secondary">No low-equity aggression detected this session (raises within suggested range).</Typography>
                 )}
               </Stack>
             </Box>
@@ -496,7 +496,7 @@ export default function MoveLog({ moves = [] }) {
           <span className="summary-callout-label">Session summary</span>
           <p className="summary-callout-text">
             {stats.total} decisions · {stats.matched} optimal ({stats.adherence}%) · Avg equity {stats.avgEquity != null ? `${stats.avgEquity.toFixed(1)}%` : '—'}.
-            Bots in Train mode use your Move Log aggression to play against your weakness.
+            Bots use this decision-making profile to calibrate to your behavioral patterns.
           </p>
         </div>
       </section>
@@ -664,7 +664,7 @@ export default function MoveLog({ moves = [] }) {
   )
 }
 
-/** Build a summary profile from move log for the bots tab (aggression, bluff conditions, etc.) */
+/** Build a behavioral/decision-making profile from move log for the bots tab */
 export function getPlayerProfile(moves) {
   if (!moves?.length) return null
   const stats = computeStats(moves)
