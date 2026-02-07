@@ -64,9 +64,27 @@ export async function tableAction(seat, action, amount = 0, isHeroActing = false
   })
 }
 
+export async function tableSetHero(seat) {
+  return jsonFetch('/api/table/set_hero', {
+    method: 'POST',
+    body: JSON.stringify({ seat }),
+  })
+}
+
 export async function tableReset(numPlayers = 6) {
   return jsonFetch('/api/table/reset', {
     method: 'POST',
     body: JSON.stringify({ num_players: numPlayers }),
+  })
+}
+
+export async function getPlayStyle() {
+  return jsonFetch('/api/play_style')
+}
+
+export async function setPlayStyle(aggression) {
+  return jsonFetch('/api/play_style', {
+    method: 'POST',
+    body: JSON.stringify({ aggression }),
   })
 }

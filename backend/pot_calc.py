@@ -93,42 +93,105 @@ class PotState:
         return state
 
 
+# Default thresholds (neutral play)
+RAISE_WHEN_NO_BET_EQUITY = 55.0
+RAISE_WHEN_FACING_BET_EQUITY = 60.0
+
+# Aggression: lower thresholds = more calls/raises (aggressive), higher = fewer (conservative)
+# call_buffer: added to break-even required equity. Aggressive: call with less. Conservative: call only with more.
+# raise_no_bet / raise_facing_bet: equity % to recommend bet/raise.
+# (+5% aggression = thresholds shifted down by 5)
+AGGRESSION_THRESHOLDS = {
+    "aggressive": {
+        "call_buffer": -22.0,
+        "raise_when_no_bet": 20.0,
+        "raise_when_facing_bet": 24.0,
+    },
+    "neutral": {
+        "call_buffer": -15.0,
+        "raise_when_no_bet": 25.0,
+        "raise_when_facing_bet": 29.0,
+    },
+    "conservative": {
+        "call_buffer": -5.0,
+        "raise_when_no_bet": 42.0,
+        "raise_when_facing_bet": 46.0,
+    },
+}
+
+
+def get_thresholds(aggression: str | None) -> dict:
+    """Return threshold dict for aggression level. Default to neutral if unknown."""
+    if aggression and aggression in AGGRESSION_THRESHOLDS:
+        return AGGRESSION_THRESHOLDS[aggression].copy()
+    return AGGRESSION_THRESHOLDS["neutral"].copy()
+
+
 def recommendation(
     equity_pct: float | None,
     street: str,
     pot_state: PotState,
+    aggression: str | None = "neutral",
 ) -> tuple[str, str]:
     """
     Given our hand equity (0–100), the street we're on, and pot state,
-    return (verdict, reason).
-
-    Verdict: "call" | "fold" | "no_bet"
-    - "no_bet": opponent hasn't bet this street (nothing to call).
-    - "call": equity >= required equity → calling is +EV or break-even.
-    - "fold": equity < required equity → folding is better.
+    return (verdict, reason). aggression: "aggressive" | "neutral" | "conservative"
+    adjusts call/raise thresholds (aggressive = lower equity to call/raise).
     """
     if street not in STREETS:
         return "no_bet", f"Unknown street: {street}"
 
-    to_call = pot_state.amount_to_call(street)
-    if to_call <= 0:
-        return "no_bet", "No bet to call on this street."
+    th = get_thresholds(aggression)
+    raise_no_bet = th["raise_when_no_bet"]
+    raise_facing_bet = th["raise_when_facing_bet"]
+    call_buffer = th["call_buffer"]
 
-    required = pot_state.required_equity_pct(street)
+    to_call = pot_state.amount_to_call(street)
+    required_raw = pot_state.required_equity_pct(street)
+    required = (required_raw + call_buffer) if required_raw is not None else None
+
+    # No bet to call — we can check or bet
+    if to_call <= 0:
+        if equity_pct is None:
+            return "check", "Equity unknown. Check or bet small."
+        if equity_pct >= raise_no_bet:
+            return (
+                "raise",
+                f"Strong hand ({equity_pct:.1f}% equity). Bet ½–⅔ pot for value.",
+            )
+        if equity_pct >= 30:
+            return (
+                "check",
+                f"Medium equity ({equity_pct:.1f}%). Check or small bet.",
+            )
+        return (
+            "check",
+            f"Weak hand ({equity_pct:.1f}%). Check.",
+        )
+
+    # Facing a bet — use pot odds (with call_buffer)
     if required is None:
         return "no_bet", "Could not compute required equity."
 
     if equity_pct is None:
-        return "fold", f"Equity unknown. You need {required:.1f}% to call (pot odds)."
-
-    if equity_pct >= required:
         return (
-            "call",
-            f"Equity {equity_pct:.1f}% ≥ required {required:.1f}% → call is profitable.",
+            "fold",
+            f"Equity unknown. You need ~{required:.1f}% to call (pot odds). Fold unless you know you're ahead.",
+        )
+
+    if equity_pct < required:
+        return (
+            "fold",
+            f"Equity {equity_pct:.1f}% < required {required:.1f}% (pot odds) → fold.",
+        )
+    if equity_pct >= raise_facing_bet:
+        return (
+            "raise",
+            f"Equity {equity_pct:.1f}% well above required {required:.1f}%. Raise for value.",
         )
     return (
-        "fold",
-        f"Equity {equity_pct:.1f}% < required {required:.1f}% → fold.",
+        "call",
+        f"Equity {equity_pct:.1f}% ≥ required {required:.1f}% (pot odds) → call is profitable.",
     )
 
 

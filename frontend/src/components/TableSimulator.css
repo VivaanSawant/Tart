@@ -52,6 +52,12 @@
   margin-bottom: 12px;
 }
 
+.table-sim-waiting {
+  color: #f1c40f;
+  font-size: 0.95rem;
+  margin: 0;
+}
+
 .table-container {
   position: relative;
   width: 100%;
@@ -193,6 +199,24 @@
   font-size: 0.8rem;
   color: #f1c40f;
   margin-top: 4px;
+}
+
+.btn-seat-hero {
+  margin-top: 8px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: #2ecc71;
+  color: #0f1729;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-seat-hero:hover {
+  background: #27ae60;
+  color: #fff;
 }
 
 .table-actions-panel {

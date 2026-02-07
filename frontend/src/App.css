@@ -158,6 +158,52 @@
   margin-bottom: 16px;
 }
 
+.play-style-section {
+  margin-bottom: 20px;
+}
+
+.play-style-section h2 {
+  margin: 0 0 6px 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #a0a0c0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.play-style-hint {
+  font-size: 0.8rem;
+  color: #888;
+  margin: 0 0 10px 0;
+}
+
+.play-style-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.play-style-btn {
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  background: #2a2a4a;
+  color: #a0a0c0;
+  border: 1px solid #3a3a5a;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.play-style-btn:hover {
+  background: #3a3a5a;
+  color: #eee;
+}
+
+.play-style-btn.active {
+  background: #3498db;
+  color: #fff;
+  border-color: #3498db;
+}
+
 .btn-clear {
   margin-top: 4px;
 }
@@ -391,6 +437,14 @@
 
 .recommendation.fold {
   color: #e74c3c;
+}
+
+.recommendation.raise {
+  color: #f39c12;
+}
+
+.recommendation.check {
+  color: #3498db;
 }
 
 .recommendation.no_bet {
