@@ -51,11 +51,14 @@ function parseVoiceCommand(transcript) {
   if (!transcript) return null
   const t = transcript.toLowerCase().trim()
 
+  // Ignore very short or noise-like transcriptions
+  if (t.length < 3) return null
+
+  // Check specific commands first (call/raise with amounts), then simple ones
   if (/\bfold\b/.test(t)) return { action: 'fold' }
   if (/\bcheck\b/.test(t)) return { action: 'check' }
-  if (/\ball[\s-]?in\b/.test(t)) return { action: 'allin' }
 
-  // "call 20 cents" / "call fifty" / "call 1.50" / "call" (no amount)
+  // "call 20 cents" / "call fifty" / "call 1.50" / "call"
   const callMatch = t.match(/\bcall(?:\s+(.+))?/)
   if (callMatch) {
     if (!callMatch[1]) return { action: 'call', amount: null }
@@ -77,6 +80,11 @@ function parseVoiceCommand(transcript) {
     if (amount != null && isCents) amount = amount / 100
     return { action: 'raise', amount: amount }
   }
+
+  // "all in" — only match if it's basically the whole phrase (not buried in noise)
+  // Must be at most a few words total to avoid false positives
+  if (/^\s*(i('m|\s+am)?\s+)?all[\s-]?in\s*[.!]?\s*$/.test(t)) return { action: 'allin' }
+  if (/^go\s+all[\s-]?in/i.test(t)) return { action: 'allin' }
 
   return null
 }
