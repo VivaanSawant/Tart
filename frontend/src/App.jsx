@@ -7,10 +7,12 @@ import {
   lockHole,
   lockHoleAll,
 } from './api/backend'
+
 import CameraPermission from './components/CameraPermission'
 import CameraSelector from './components/CameraSelector'
 import CardsPanel from './components/CardsPanel'
 import EquityPanel from './components/EquityPanel'
+import LandingPage from './components/LandingPage'
 import PotOddsPanel from './components/PotOddsPanel'
 import TableSimulatorView from './components/TableSimulatorView'
 import VideoFeed from './components/VideoFeed'
@@ -21,6 +23,7 @@ const BUY_IN = 10
 
 
 function App() {
+  const [showLanding, setShowLanding] = useState(true)
   const [gameState, setGameState] = useState({
     holeCards: [],
     availableCards: [],
@@ -94,68 +97,69 @@ function App() {
     ? 'Show your 2 hole cards to the camera, then click Lock hole.'
     : 'Hole full (2/2). Click a hole card to remove it, or Clear hand for new hand.'
 
+  if (showLanding) {
+    return <LandingPage onEnter={() => setShowLanding(false)} />
+  }
+
   return (
     <CameraPermission>
     <div className="app">
-      <header className="app-header">
-        <h1>PokerPlaya</h1>
-        <p className="subtitle">
-          CV detects your cards and board. Table sim tracks flow and bets. Equity and recommendations
-          use players still in hand.
-        </p>
-      </header>
-
-      <div className="layout">
-        <div className="main-area">
-          <CameraSelector />
-          <div className="video-wrap">
-            <VideoFeed src="/video_feed" />
-          </div>
-          <TableSimulatorView
-            holeCount={gameState.holeCards.length}
-            flopCount={gameState.flopCards.length}
-            hasTurn={gameState.turnCard != null}
-            hasRiver={gameState.riverCard != null}
-            potInfo={gameState.potInfo}
-          />
-          <CardsPanel
-            holeCards={gameState.holeCards}
-            availableCards={gameState.availableCards}
-            flopCards={gameState.flopCards}
-            turnCard={gameState.turnCard}
-            riverCard={gameState.riverCard}
-            canLockHole={canLockHole}
-            holeHint={holeHint}
-            onLockHole={handleLockHole}
-            onLockHoleAll={handleLockHoleAll}
-          />
+      <div className="main-area">
+        <CameraSelector />
+        <div className="video-wrap">
+          <VideoFeed src="/video_feed" />
         </div>
+      </div>
 
-        <aside className="sidebar panel">
-          <EquityPanel
-            equityPreflop={gameState.equityPreflop}
-            equityFlop={gameState.equityFlop}
-            equityTurn={gameState.equityTurn}
-            equityRiver={gameState.equityRiver}
-            equityError={gameState.equityError}
-            betRecommendations={gameState.betRecommendations}
-            potInfo={gameState.potInfo}
-            holeCount={gameState.holeCards.length}
-            flopCount={gameState.flopCards.length}
-            playersInHand={gameState.table?.players_in_hand?.length ?? 6}
-          />
+      <div className="below-fold">
+        <div className="layout">
+          <div className="main-area">
+            <TableSimulatorView
+              holeCount={gameState.holeCards.length}
+              flopCount={gameState.flopCards.length}
+              hasTurn={gameState.turnCard != null}
+              hasRiver={gameState.riverCard != null}
+              potInfo={gameState.potInfo}
+            />
+            <CardsPanel
+              holeCards={gameState.holeCards}
+              availableCards={gameState.availableCards}
+              flopCards={gameState.flopCards}
+              turnCard={gameState.turnCard}
+              riverCard={gameState.riverCard}
+              canLockHole={canLockHole}
+              holeHint={holeHint}
+              onLockHole={handleLockHole}
+              onLockHoleAll={handleLockHoleAll}
+            />
+          </div>
 
-          <PotOddsPanel
-            potInfo={gameState.potInfo}
-            smallBlind={SMALL_BLIND}
-            bigBlind={BIG_BLIND}
-            buyIn={BUY_IN}
-          />
+          <aside className="sidebar panel">
+            <EquityPanel
+              equityPreflop={gameState.equityPreflop}
+              equityFlop={gameState.equityFlop}
+              equityTurn={gameState.equityTurn}
+              equityRiver={gameState.equityRiver}
+              equityError={gameState.equityError}
+              betRecommendations={gameState.betRecommendations}
+              potInfo={gameState.potInfo}
+              holeCount={gameState.holeCards.length}
+              flopCount={gameState.flopCards.length}
+              playersInHand={gameState.table?.players_in_hand?.length ?? 6}
+            />
 
-          <button type="button" className="btn btn-clear" onClick={handleClear}>
-            Clear hand
-          </button>
-        </aside>
+            <PotOddsPanel
+              potInfo={gameState.potInfo}
+              smallBlind={SMALL_BLIND}
+              bigBlind={BIG_BLIND}
+              buyIn={BUY_IN}
+            />
+
+            <button type="button" className="btn btn-clear" onClick={handleClear}>
+              Clear hand
+            </button>
+          </aside>
+        </div>
       </div>
     </div>
     </CameraPermission>
