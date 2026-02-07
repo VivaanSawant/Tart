@@ -9,7 +9,22 @@ function formatMoney(val) {
 
 const HERO_KEYS = { 1: 'check', 2: 'call', 3: 'fold', 4: 'raise' }
 
-export default function TableSimulatorView() {
+function cardsNeededForStreet(street) {
+  switch (street) {
+    case 'preflop': return '2 hole cards'
+    case 'flop': return '3 flop cards'
+    case 'turn': return 'turn card'
+    case 'river': return 'river card'
+    default: return 'cards'
+  }
+}
+
+export default function TableSimulatorView({
+  holeCount = 0,
+  flopCount = 0,
+  hasTurn = false,
+  hasRiver = false,
+}) {
   const [state, setState] = useState(null)
   const [raiseAmount, setRaiseAmount] = useState(0.4)
   const [numPlayers, setNumPlayers] = useState(6)
@@ -17,6 +32,18 @@ export default function TableSimulatorView() {
 
   const heroSeat = state?.hero_seat ?? null
   const heroPosition = state?.hero_position ?? null
+  const currentActor = state?.current_actor ?? null
+  const isMyTurn = heroSeat != null && currentActor === heroSeat
+  const street = state?.street ?? 'preflop'
+  const hasCardsForStreet =
+    state &&
+    ((street === 'preflop' && holeCount >= 2) ||
+      (street === 'flop' && holeCount >= 2 && flopCount >= 3) ||
+      (street === 'turn' && holeCount >= 2 && flopCount >= 3 && hasTurn) ||
+      (street === 'river' && holeCount >= 2 && flopCount >= 3 && hasTurn && hasRiver))
+  const canAct = !!hasCardsForStreet
+  const costToCall = state?.cost_to_call ?? 0
+  const canCheck = costToCall <= 0
 
   const loadState = async () => {
     const data = await fetchTableState()
@@ -56,23 +83,24 @@ export default function TableSimulatorView() {
 
   useEffect(() => {
     const onKeyDown = (e) => {
-      if (!state || state.current_actor == null) return
+      if (!canAct || !state || state.current_actor == null) return
+      if (!isMyTurn) return
       const key = e.key
       if (e.altKey || e.ctrlKey || e.metaKey) return
       const action = HERO_KEYS[parseInt(key, 10)]
       if (action) {
         e.preventDefault()
-        const costToCall = state.cost_to_call ?? 0
-        const canCheck = costToCall <= 0
-        if (action === 'check' && canCheck) handleHeroAction('check')
-        else if (action === 'call' && costToCall > 0) handleHeroAction('call', costToCall)
+        const cost = state.cost_to_call ?? 0
+        const checkOk = cost <= 0
+        if (action === 'check' && checkOk) handleHeroAction('check')
+        else if (action === 'call' && cost > 0) handleHeroAction('call', cost)
         else if (action === 'fold') handleHeroAction('fold')
         else if (action === 'raise') handleHeroAction('raise', raiseAmount)
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [state, handleHeroAction, raiseAmount])
+  }, [canAct, isMyTurn, state, handleHeroAction, raiseAmount])
 
   const handleReset = async () => {
     const res = await tableReset(numPlayers)
@@ -91,11 +119,6 @@ export default function TableSimulatorView() {
       </div>
     )
   }
-
-  const currentActor = state.current_actor
-  const isMyTurn = heroSeat != null && currentActor === heroSeat
-  const costToCall = state.cost_to_call ?? 0
-  const canCheck = costToCall <= 0
 
   // Position seats around an ellipse (6–10 players)
   const n = state.num_players || 6
@@ -200,9 +223,17 @@ export default function TableSimulatorView() {
           <h3>
             {currentActor != null ? (
               isMyTurn ? (
-                <>Your turn (Seat {currentActor}, {heroPosition})</>
+                canAct ? (
+                  <>Your turn (Seat {currentActor}, {heroPosition})</>
+                ) : (
+                  <>Your turn — waiting for CV to detect {cardsNeededForStreet(street)}</>
+                )
               ) : (
-                <>Seat {currentActor} to act</>
+                canAct ? (
+                  <>Seat {currentActor} to act</>
+                ) : (
+                  <>Waiting for CV to detect {cardsNeededForStreet(street)}</>
+                )
               )
             ) : (
               <>Waiting for next hand</>
@@ -210,64 +241,75 @@ export default function TableSimulatorView() {
           </h3>
         )}
 
-        {currentActor != null && (
+        {currentActor != null && isMyTurn && (
           <div className="action-buttons">
-            <div className="hero-actions-label">
-              Hero acts: use keys <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd> or click
-            </div>
-            {canCheck && (
-              <button
-                type="button"
-                className="btn btn-action btn-check"
-                onClick={() => handleHeroAction('check')}
-              >
-                Check <span className="kbd">1</span>
-              </button>
+            {!canAct ? (
+              <p className="table-sim-waiting">
+                Show {cardsNeededForStreet(street)} to the camera to act.
+              </p>
+            ) : (
+              <>
+                <div className="hero-actions-label">
+                  Hero acts: use keys <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd> or click
+                </div>
+                {canCheck && (
+                  <button
+                    type="button"
+                    className="btn btn-action btn-check"
+                    onClick={() => handleAction('check', 0, true)}
+                  >
+                    Check <span className="kbd">1</span>
+                  </button>
+                )}
+                {costToCall > 0 && (
+                  <button
+                    type="button"
+                    className="btn btn-action btn-call"
+                    onClick={() => handleAction('call', costToCall, true)}
+                  >
+                    Call {formatMoney(costToCall)} <span className="kbd">2</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="btn btn-action btn-fold"
+                  onClick={() => handleAction('fold', 0, true)}
+                >
+                  Fold <span className="kbd">3</span>
+                </button>
+                <div className="raise-row">
+                  <button
+                    type="button"
+                    className="btn btn-action btn-raise"
+                    onClick={() => handleAction('raise', raiseAmount, true)}
+                  >
+                    Raise <span className="kbd">4</span>
+                  </button>
+                  <input
+                    type="number"
+                    min="0.01"
+                    step="0.1"
+                    value={raiseAmount}
+                    onChange={(e) => setRaiseAmount(Number(e.target.value) || 0.2)}
+                  />
+                </div>
+              </>
             )}
-            {costToCall > 0 && (
-              <button
-                type="button"
-                className="btn btn-action btn-call"
-                onClick={() => handleHeroAction('call', costToCall)}
-              >
-                Call {formatMoney(costToCall)} <span className="kbd">2</span>
-              </button>
-            )}
-            <button
-              type="button"
-              className="btn btn-action btn-fold"
-              onClick={() => handleHeroAction('fold')}
-            >
-              Fold <span className="kbd">3</span>
-            </button>
-            <div className="raise-row">
-              <button
-                type="button"
-                className="btn btn-action btn-raise"
-                onClick={() => handleHeroAction('raise', raiseAmount)}
-              >
-                Raise <span className="kbd">4</span>
-              </button>
-              <input
-                type="number"
-                min="0.01"
-                step="0.1"
-                value={raiseAmount}
-                onChange={(e) => setRaiseAmount(Number(e.target.value) || 0.2)}
-              />
-            </div>
           </div>
         )}
 
         {currentActor != null && !isMyTurn && (
           <div className="simulate-others">
-            <p className="simulate-label">Simulate other player (Seat {currentActor}):</p>
+            <p className="simulate-label">
+              Simulate other player (Seat {currentActor})
+              {heroSeat == null && ' — or click to register as Hero if this is you'}
+            </p>
             <div className="action-buttons simulate-buttons">
               {canCheck && (
                 <button
                   type="button"
                   className="btn btn-action btn-sim"
-                  onClick={() => handleAction('check')}
+                  onClick={() => handleAction('check', 0, heroSeat == null)}
                 >
                   Check
                 </button>
@@ -276,7 +318,7 @@ export default function TableSimulatorView() {
                 <button
                   type="button"
                   className="btn btn-action btn-sim"
-                  onClick={() => handleAction('call', costToCall)}
+                  onClick={() => handleAction('call', costToCall, heroSeat == null)}
                 >
                   Call {formatMoney(costToCall)}
                 </button>
@@ -284,7 +326,7 @@ export default function TableSimulatorView() {
               <button
                 type="button"
                 className="btn btn-action btn-sim"
-                onClick={() => handleAction('fold')}
+                onClick={() => handleAction('fold', 0, heroSeat == null)}
               >
                 Fold
               </button>
@@ -292,7 +334,7 @@ export default function TableSimulatorView() {
                 <button
                   type="button"
                   className="btn btn-action btn-sim"
-                  onClick={() => handleAction('raise', raiseAmount)}
+                  onClick={() => handleAction('raise', raiseAmount, heroSeat == null)}
                 >
                   Raise
                 </button>

@@ -51,6 +51,12 @@
   margin-bottom: 12px;
 }
 
+.table-sim-waiting {
+  color: #f1c40f;
+  font-size: 0.95rem;
+  margin: 0;
+}
+
 .table-container {
   position: relative;
   width: 100%;

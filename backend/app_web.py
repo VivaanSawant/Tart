@@ -589,6 +589,9 @@ def api_confirm_betting():
     state = ts.get_state()
     if state.current_actor is None:
         return jsonify({"ok": False, "error": "Not your turn"}), 400
+    if not _has_cards_for_street(state.street):
+        needed = {"preflop": "2 hole cards", "flop": "3 flop cards", "turn": "turn card", "river": "river card"}.get(state.street, "required cards")
+        return jsonify({"ok": False, "error": f"CV has not detected {needed} yet. Show cards to camera first."}), 400
 
     cost = ts.cost_to_call(state.current_actor)
     if action == "check" and cost > 0:
@@ -692,6 +695,24 @@ def api_table_state():
     return jsonify(_table_state_to_dict(s))
 
 
+def _has_cards_for_street(street: str) -> bool:
+    """True if CV has detected the required cards for acting on this street."""
+    with shared_state["lock"]:
+        n_hole = len(shared_state["locked_cards"])
+        n_flop = len(shared_state["flop_cards"])
+        has_turn = shared_state["turn_card"] is not None
+        has_river = shared_state["river_card"] is not None
+    if street == "preflop":
+        return n_hole >= 2
+    if street == "flop":
+        return n_hole >= 2 and n_flop >= 3
+    if street == "turn":
+        return n_hole >= 2 and n_flop >= 3 and has_turn
+    if street == "river":
+        return n_hole >= 2 and n_flop >= 3 and has_turn and has_river
+    return False
+
+
 @app.route("/api/table/action", methods=["POST"])
 def api_table_action():
     data = request.get_json(force=True, silent=True) or {}
@@ -704,7 +725,19 @@ def api_table_action():
     if action not in (CHECK, CALL, RAISE, FOLD):
         return jsonify({"ok": False, "error": "action must be check, call, raise, or fold"}), 400
     ts = _get_table_sim()
-    street_before = ts.get_state().street
+    table_state = ts.get_state()
+    street_before = table_state.street
+    if is_hero_acting and not _has_cards_for_street(street_before):
+        needed = {
+            "preflop": "2 hole cards",
+            "flop": "3 flop cards",
+            "turn": "turn card",
+            "river": "river card",
+        }.get(street_before, "required cards")
+        return jsonify({
+            "ok": False,
+            "error": f"CV has not detected {needed} yet. Show cards to camera first.",
+        }), 400
     result = ts.record_action(int(seat), action, amount, is_hero_acting=is_hero_acting)
     if result is None:
         return jsonify({"ok": False, "error": "invalid action (wrong turn?)"}), 400
