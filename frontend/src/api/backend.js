@@ -78,6 +78,36 @@ export async function tableReset(numPlayers = 6) {
   })
 }
 
+// Bot game mode
+export async function botFetchState() {
+  return jsonFetch('/api/bot/state')
+}
+
+export async function botStart(numPlayers = 6) {
+  return jsonFetch('/api/bot/start', {
+    method: 'POST',
+    body: JSON.stringify({ num_players: numPlayers }),
+  })
+}
+
+export async function botAction(action, amount = 0) {
+  return jsonFetch('/api/bot/action', {
+    method: 'POST',
+    body: JSON.stringify({ action, amount }),
+  })
+}
+
+export async function botNextHand() {
+  return jsonFetch('/api/bot/next_hand', { method: 'POST' })
+}
+
+export async function botSetPlayStyle(aggression) {
+  return jsonFetch('/api/bot/play_style', {
+    method: 'POST',
+    body: JSON.stringify({ aggression }),
+  })
+}
+
 export async function getPlayStyle() {
   return jsonFetch('/api/play_style')
 }

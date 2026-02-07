@@ -23,6 +23,7 @@ import EquityPanel from './components/EquityPanel'
 import LandingPage from './components/LandingPage'
 import MoveLog from './components/MoveLog'
 import PotOddsPanel from './components/PotOddsPanel'
+import BotGameView from './components/BotGameView'
 import TableSimulatorView from './components/TableSimulatorView'
 import VideoFeed from './components/VideoFeed'
 
