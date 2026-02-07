@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
-import { fetchTableState, tableAction, tableReset, tableSetHero } from '../api/backend'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { fetchTableState, tableAction, tableReset, tableSetHero, transcribeChunk } from '../api/backend'
 import { getCardImage } from '../utils/cardImages'
 import './TableSimulator.css'
 
@@ -327,8 +327,11 @@ export default function TableSimulatorView({
 
               const cmd = parseVoiceCommand(result.text)
               if (cmd) {
+                setVoiceStatus(`Executing: ${cmd.action}${cmd.amount != null ? ' ' + cmd.amount : ''}`)
                 await executeVoiceCommand(cmd)
                 // Don't stop — keep listening for the next player
+              } else {
+                setVoiceStatus(`Heard: "${result.text}" (no command detected — say call/fold/raise/check)`)
               }
             } else if (result && !result.ok) {
               setVoiceError(result.error || 'Transcription failed')

@@ -77,6 +77,14 @@ function App() {
     }
   }
 
+  const handleBettingSubmit = async (street, amount, isCall) => {
+    const action = isCall ? (amount > 0 ? 'call' : 'check') : 'fold'
+    const res = await confirmBetting(action, amount)
+    if (res && res.ok) {
+      handleFetchState()
+    }
+  }
+
   const handlePlayStyleChange = async (aggression) => {
     const res = await setPlayStyle(aggression)
     if (res && res.ok) {

@@ -8,4 +8,5 @@ backend/current_hand.json
 frontend/node_modules/
 frontend/dist/
 frontend/.env
+backend/hugging_face_token.txt
 .DS_Store
