@@ -16,8 +16,12 @@
   transform-origin: center center;
 }
 
-.landing-banner {
-  text-align: center;
+.landing-inline {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  cursor: pointer;
+  outline: none;
 }
 
 .landing-ascii {
@@ -33,22 +37,22 @@
   font-size: 1.275rem;
 }
 
-.landing-spade {
-  text-align: center;
-  cursor: pointer;
-  outline: none;
-}
-
 .spade-ascii {
   font-size: 1.65rem;
-  display: inline-block;
+  flex-shrink: 0;
+  margin-right: 135px;
+  transition: transform 0.2s ease;
+}
+
+.spade-ascii:hover {
+  transform: scale(1.10);
 }
 
 .landing-click-hint {
   font-family: 'Roboto Mono', monospace;
   color: #888;
   font-size: 1.54rem;
-  margin: 16px 0 0 0;
+  margin: 48px 0 0 15px;
   letter-spacing: 0.05em;
   user-select: none;
   text-align: center;

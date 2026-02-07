@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 import './LandingPage.css'
 
-const BANNER_ASCII = String.raw`
+const _BANNER_ASCII = String.raw`
  _______            __                                  _______   __                               
 /       \          /  |                                /       \ /  |                              
 $$$$$$$  | ______  $$ |   __   ______    ______        $$$$$$$  |$$ |  ______   __    __   ______  
@@ -15,6 +15,11 @@ $$/       $$$$$$/  $$/   $$/  $$$$$$$/ $$/             $$/       $$/  $$$$$$$/  
                                                                                $$    $$/           
                                                                                 $$$$$$/            
 `
+
+// Split banner into Poker (cols 0–54) and Playa (cols 55+)
+const _bannerLines = _BANNER_ASCII.split('\n')
+const POKER_ASCII = _bannerLines.map((l) => l.slice(0, 55).trimEnd()).join('\n')
+const PLAYA_ASCII = _bannerLines.map((l) => l.slice(55).trimEnd()).join('\n')
 
 const SPADE_ASCII = `                                         
                       #                      
@@ -41,9 +46,8 @@ const SPADE_ASCII = `
 
 // --- Parse grids ---
 function parseGrid(ascii) {
-  const rawLines = ascii.split('\n')
+  const rawLines = ascii.split('\n').map((l) => l.trimEnd())
   const maxCols = Math.max(...rawLines.map((l) => l.length))
-  // Pad all lines to maxCols to keep original centering intact
   const grid = rawLines.map((line) => {
     const chars = [...line]
     while (chars.length < maxCols) chars.push(' ')
@@ -52,15 +56,17 @@ function parseGrid(ascii) {
   return { lines: rawLines, numRows: rawLines.length, maxCols, grid }
 }
 
-const BANNER = parseGrid(BANNER_ASCII)
+const POKER = parseGrid(POKER_ASCII)
+const PLAYA = parseGrid(PLAYA_ASCII)
 const SPADE = parseGrid(SPADE_ASCII)
 
-const BANNER_INITIAL = BANNER.grid.map((r) => r.join('')).join('\n')
+const POKER_INITIAL = POKER.grid.map((r) => r.join('')).join('\n')
+const PLAYA_INITIAL = PLAYA.grid.map((r) => r.join('')).join('\n')
 const SPADE_INITIAL = SPADE.grid.map((r) => r.join('')).join('\n')
 
 const TRAIL_RADIUS = 1
-const RESTORE_MIN_MS = 390
-const RESTORE_MAX_MS = 910
+const RESTORE_MIN_MS = 254
+const RESTORE_MAX_MS = 592
 
 const GLITCH_CHARS = ['@', '/', '[', '.', ']']
 
@@ -157,7 +163,8 @@ function useTrailGrid(parsed) {
 }
 
 export default function LandingPage({ onEnter }) {
-  const banner = useTrailGrid(BANNER)
+  const poker = useTrailGrid(POKER)
+  const playa = useTrailGrid(PLAYA)
   const spade = useTrailGrid(SPADE)
   const glitchTimersRef = useRef({})
 
@@ -203,29 +210,35 @@ export default function LandingPage({ onEnter }) {
   return (
     <div className="landing">
       <div className="landing-content">
-        <div className="landing-banner">
-          <pre
-            ref={banner.preRef}
-            className="landing-ascii banner-ascii"
-            onMouseMove={banner.handleMouseMove}
-          >
-            {BANNER_INITIAL}
-          </pre>
-        </div>
-
         <div
-          className="landing-spade"
+          className="landing-inline"
           onClick={onEnter}
           role="button"
           tabIndex={0}
           onKeyDown={(e) => e.key === 'Enter' && onEnter()}
         >
           <pre
+            ref={poker.preRef}
+            className="landing-ascii banner-ascii"
+            onMouseMove={poker.handleMouseMove}
+          >
+            {POKER_INITIAL}
+          </pre>
+
+          <pre
             ref={spade.preRef}
             className="landing-ascii spade-ascii"
             onMouseMove={spade.handleMouseMove}
           >
             {SPADE_INITIAL}
+          </pre>
+
+          <pre
+            ref={playa.preRef}
+            className="landing-ascii banner-ascii"
+            onMouseMove={playa.handleMouseMove}
+          >
+            {PLAYA_INITIAL}
           </pre>
         </div>
 
