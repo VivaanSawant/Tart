@@ -14,11 +14,8 @@ import CameraPermission from './components/CameraPermission'
 import CardsPanel from './components/CardsPanel'
 import EquityPanel from './components/EquityPanel'
 import PotOddsPanel from './components/PotOddsPanel'
-<<<<<<< HEAD
 import CameraSelector from './components/CameraSelector'
-=======
 import TableSimulatorView from './components/TableSimulatorView'
->>>>>>> 8d4f4a882c2f63303c4db6a0f2466c3b344c709b
 import VideoFeed from './components/VideoFeed'
 
 const SMALL_BLIND = 0.1
