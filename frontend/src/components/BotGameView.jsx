@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { botAction, botFetchState, botNextHand, botStart } from '../api/backend'
+import { botAction, botFetchState, botNextHand, botStart, setBotAggression, fetchOpponentProfiles } from '../api/backend'
 import { getCardImage } from '../utils/cardImages'
 import useVoiceInput from '../hooks/useVoiceInput'
 
@@ -15,6 +15,8 @@ import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import CircularProgress from '@mui/material/CircularProgress'
+import MenuItem from '@mui/material/MenuItem'
+import Select from '@mui/material/Select'
 import MicIcon from '@mui/icons-material/Mic'
 import StopIcon from '@mui/icons-material/Stop'
 
@@ -58,6 +60,27 @@ export default function BotGameView({ playerProfile = null }) {
   const playerStacks = state?.player_stacks ?? {}
   const allInPlayers = state?.all_in_players ?? []
   const heroStack = Number(playerStacks[String(heroSeat)] ?? 10)
+
+  // Per-bot aggression from state + opponent profiles for dropdown
+  const botAggression = state?.bot_aggression ?? {}
+  const defaultAggression = state?.default_aggression ?? 'neutral'
+  const [opponentProfiles, setOpponentProfiles] = useState({})
+
+  // Fetch opponent profiles once (for the dropdown options)
+  useEffect(() => {
+    let mounted = true
+    const load = async () => {
+      const res = await fetchOpponentProfiles()
+      if (res?.ok && mounted) setOpponentProfiles(res.opponents || {})
+    }
+    load()
+    const interval = setInterval(load, 5000)
+    return () => { mounted = false; clearInterval(interval) }
+  }, [])
+
+  const handleBotAggressionChange = useCallback(async (seat, value) => {
+    await setBotAggression(seat, value)
+  }, [])
 
   const loadState = useCallback(async () => {
     const data = await botFetchState()
@@ -374,10 +397,30 @@ export default function BotGameView({ playerProfile = null }) {
                     <Typography sx={{ fontSize: '0.75rem', color: stack <= 1 ? '#e74c3c' : '#2ecc71', fontWeight: 700 }}>
                       {formatMoney(stack)}
                     </Typography>
-                    {!isHero && inHand && (
-                      <Typography variant="caption" color="text.secondary" title="This opponent adjusts to your play">
-                        Exploit
-                      </Typography>
+                    {!isHero && (
+                      <Select
+                        size="small"
+                        value={botAggression[String(seat)] || 'default'}
+                        onChange={(e) => handleBotAggressionChange(seat, e.target.value)}
+                        sx={{
+                          height: 22, fontSize: '0.68rem', minWidth: 80,
+                          '& .MuiSelect-select': { py: 0, px: 0.75 },
+                        }}
+                      >
+                        <MenuItem value="default" sx={{ fontSize: '0.75rem' }}>Default</MenuItem>
+                        <MenuItem value="conservative" sx={{ fontSize: '0.75rem' }}>Conservative</MenuItem>
+                        <MenuItem value="neutral" sx={{ fontSize: '0.75rem' }}>Neutral</MenuItem>
+                        <MenuItem value="aggressive" sx={{ fontSize: '0.75rem' }}>Aggressive</MenuItem>
+                        {Object.entries(opponentProfiles).map(([seatStr, opp]) => {
+                          const p = opp.profile
+                          if (!p || p.total_actions < 1) return null
+                          return (
+                            <MenuItem key={seatStr} value={p.aggression_level} sx={{ fontSize: '0.75rem' }}>
+                              {opp.name} ({p.aggression})
+                            </MenuItem>
+                          )
+                        })}
+                      </Select>
                     )}
                     <Stack direction="row" spacing={0.5} flexWrap="wrap" justifyContent="center">
                       {isDealer && <Chip label="D" size="small" sx={{ height: 20, fontSize: '0.7rem', bgcolor: '#3498db', color: '#fff' }} />}

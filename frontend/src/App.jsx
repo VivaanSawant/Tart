@@ -22,6 +22,7 @@ import CameraSelector from './components/CameraSelector'
 import EquityPanel from './components/EquityPanel'
 import LandingPage from './components/LandingPage'
 import MoveLog, { getPlayerProfile } from './components/MoveLog'
+import OpponentProfiles from './components/OpponentProfiles'
 import HandProbabilitiesPanel from './components/HandProbabilitiesPanel'
 import PotOddsPanel from './components/PotOddsPanel'
 import BotGameView from './components/BotGameView'
@@ -169,7 +170,10 @@ function App() {
         {/* Tab content */}
         {activeTab === 'movelog' ? (
           <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', py: 2 }}>
-            <MoveLog moves={moveLog} />
+            <Stack spacing={2}>
+              <OpponentProfiles />
+              <MoveLog moves={moveLog} />
+            </Stack>
           </Box>
         ) : activeTab === 'bots' ? (
           moveLog.length === 0 ? (

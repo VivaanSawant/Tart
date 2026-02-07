@@ -417,6 +417,9 @@ shared_state = {
     "camera_index": 0,
     "camera_error": None,
     "play_style": "neutral",  # "aggressive" | "neutral" | "conservative" — equity thresholds
+    # Opponent tracking
+    "opponent_actions": {},   # {seat_str: [{action, amount, street, hand_number}]}
+    "player_names": {},       # {seat_str: display_name}  — populated lazily
 }
 stop_event = threading.Event()
 
@@ -1005,6 +1008,12 @@ def api_table_action():
     if is_hero_acting and action in (CHECK, CALL, RAISE):
         with shared_state["lock"]:
             shared_state["betting_confirmed_up_to"] = street_before
+    # Track opponent actions for profiling (non-hero seats)
+    if not is_hero_acting:
+        seat_str = str(seat)
+        entry = {"action": action, "amount": amount, "street": street_before, "hand_number": table_state.hand_number}
+        with shared_state["lock"]:
+            shared_state["opponent_actions"].setdefault(seat_str, []).append(entry)
     return jsonify({"ok": True, "state": _table_state_to_dict(result)})
 
 
@@ -1021,6 +1030,87 @@ def api_table_set_hero():
         return jsonify({"ok": False, "error": f"seat must be 0–{n - 1}"}), 400
     ts.set_hero_seat(seat)
     return jsonify({"ok": True, "state": _table_state_to_dict(ts.get_state())})
+
+
+# ---------------------------------------------------------------------------
+# Opponent profiles (from tracked actions in game tab)
+# ---------------------------------------------------------------------------
+
+def _compute_opponent_profile(actions: list[dict]) -> dict | None:
+    """Compute an opponent profile from their action list."""
+    if not actions:
+        return None
+    total = len(actions)
+    calls = sum(1 for a in actions if a["action"] == "call")
+    raises = sum(1 for a in actions if a["action"] == "raise")
+    folds = sum(1 for a in actions if a["action"] == "fold")
+    checks = sum(1 for a in actions if a["action"] == "check")
+    aggression = round((raises + calls * 0.5) / total * 100) if total > 0 else 50
+    fold_pct = round(folds / total * 100) if total > 0 else 0
+    raise_amounts = [a["amount"] for a in actions if a["action"] == "raise" and a["amount"] > 0]
+    avg_raise = round(sum(raise_amounts) / len(raise_amounts), 2) if raise_amounts else 0
+    if aggression > 66:
+        level = "aggressive"
+    elif aggression > 33:
+        level = "neutral"
+    else:
+        level = "conservative"
+    return {
+        "total_actions": total,
+        "aggression": aggression,
+        "fold_pct": fold_pct,
+        "avg_raise": avg_raise,
+        "by_action": {"call": calls, "raise": raises, "fold": folds, "check": checks},
+        "aggression_level": level,
+    }
+
+
+def _get_player_name(seat: int) -> str:
+    """Return display name for a seat."""
+    seat_str = str(seat)
+    with shared_state["lock"]:
+        names = shared_state["player_names"]
+        if seat_str in names:
+            return names[seat_str]
+    return f"Player {seat + 1}"
+
+
+@app.route("/api/opponents", methods=["GET"])
+def api_opponents():
+    """Return opponent profiles and player names."""
+    ts = _get_table_sim()
+    hero_seat = ts.config.hero_seat
+    n = ts.config.num_players
+    with shared_state["lock"]:
+        all_actions = dict(shared_state["opponent_actions"])
+    profiles = {}
+    for seat in range(n):
+        if seat == hero_seat:
+            continue
+        seat_str = str(seat)
+        actions = all_actions.get(seat_str, [])
+        profile = _compute_opponent_profile(actions)
+        profiles[seat_str] = {
+            "name": _get_player_name(seat),
+            "seat": seat,
+            "profile": profile,
+        }
+    return jsonify({"ok": True, "opponents": profiles, "hero_seat": hero_seat})
+
+
+@app.route("/api/opponents/rename", methods=["POST"])
+def api_opponents_rename():
+    """Rename a player. Body: { "seat": int, "name": str }."""
+    data = request.get_json(force=True, silent=True) or {}
+    seat = data.get("seat")
+    name = (data.get("name") or "").strip()
+    if seat is None or not isinstance(seat, int) or seat < 0:
+        return jsonify({"ok": False, "error": "missing or invalid 'seat'"}), 400
+    if not name:
+        return jsonify({"ok": False, "error": "name must not be empty"}), 400
+    with shared_state["lock"]:
+        shared_state["player_names"][str(seat)] = name
+    return jsonify({"ok": True, "seat": seat, "name": name})
 
 
 # ---------------------------------------------------------------------------
@@ -1088,6 +1178,22 @@ def api_bot_play_style():
     bg = _get_bot_game()
     bg.set_aggression(aggression)
     return jsonify({"ok": True, "aggression": aggression})
+
+
+@app.route("/api/bot/set_bot_aggression", methods=["POST"])
+def api_bot_set_bot_aggression():
+    """Set aggression for a specific bot seat.
+    Body: { "seat": int, "aggression": "conservative"|"neutral"|"aggressive"|"default" }."""
+    data = request.get_json(force=True, silent=True) or {}
+    seat = data.get("seat")
+    aggression = (data.get("aggression") or "").lower().strip()
+    if seat is None or not isinstance(seat, int) or seat < 0:
+        return jsonify({"ok": False, "error": "missing or invalid 'seat'"}), 400
+    if aggression not in ("conservative", "neutral", "aggressive", "default"):
+        return jsonify({"ok": False, "error": "invalid aggression"}), 400
+    bg = _get_bot_game()
+    bg.set_bot_aggression(seat, aggression)
+    return jsonify({"ok": True, "seat": seat, "aggression": aggression})
 
 
 @app.route("/api/table/reset", methods=["POST"])

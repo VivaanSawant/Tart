@@ -201,7 +201,9 @@ class BotGame:
             ),
             on_hand_ended=self._on_hand_ended,
         )
-        self._aggression = "neutral"
+        self._aggression = "neutral"  # global fallback
+        # Per-bot aggression: {seat: aggression_str}; missing → use self._aggression
+        self._bot_aggression: dict[int, str] = {}
         self._state_lock = threading.Lock()
 
     def _on_hand_ended(self, state):
@@ -280,9 +282,10 @@ class BotGame:
             river = self.cards.get("river") if state.street == "river" else None
 
             bot_stack = ts.remaining_stack(seat)
+            bot_agg = self._bot_aggression.get(seat, self._aggression)
             action, amount = _bot_decide_impl(
                 seat, hole, flop, turn, river,
-                state.street, state, cost, self.num_players, self._aggression,
+                state.street, state, cost, self.num_players, bot_agg,
                 remaining_stack=bot_stack,
             )
             result = ts.record_action(seat, action, amount, is_hero_acting=False)
@@ -339,6 +342,17 @@ class BotGame:
     def set_aggression(self, aggression: str):
         self._aggression = aggression if aggression in ("conservative", "neutral", "aggressive") else "neutral"
 
+    def set_bot_aggression(self, seat: int, aggression: str):
+        """Set aggression for a specific bot seat. 'default' clears per-bot override."""
+        if aggression == "default":
+            self._bot_aggression.pop(seat, None)
+        elif aggression in ("conservative", "neutral", "aggressive"):
+            self._bot_aggression[seat] = aggression
+
+    def get_bot_aggression(self) -> dict[int, str]:
+        """Return per-bot aggression map."""
+        return dict(self._bot_aggression)
+
     def _state_to_dict(self, state, showdown_cards: dict | None = None, last_bot_action: dict | None = None) -> dict:
         ts = self._table
         if showdown_cards:
@@ -377,4 +391,6 @@ class BotGame:
             "river": river,
             "showdown": self.showdown,
             "last_bot_action": last_bot_action,
+            "bot_aggression": {str(k): v for k, v in self._bot_aggression.items()},
+            "default_aggression": self._aggression,
         }

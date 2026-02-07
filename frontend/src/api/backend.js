@@ -138,6 +138,26 @@ export async function fetchDecisionTransferReport(profile) {
   return { ok: true, report: res.report }
 }
 
+// Opponent profiles
+export async function fetchOpponentProfiles() {
+  return jsonFetch('/api/opponents')
+}
+
+export async function renameOpponent(seat, name) {
+  return jsonFetch('/api/opponents/rename', {
+    method: 'POST',
+    body: JSON.stringify({ seat, name }),
+  })
+}
+
+// Per-bot aggression
+export async function setBotAggression(seat, aggression) {
+  return jsonFetch('/api/bot/set_bot_aggression', {
+    method: 'POST',
+    body: JSON.stringify({ seat, aggression }),
+  })
+}
+
 // Dedalus audio transcription
 export async function transcribeChunk(blob) {
   const fd = new FormData()
