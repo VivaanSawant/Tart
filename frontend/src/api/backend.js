@@ -52,3 +52,21 @@ export async function switchCamera(index) {
     body: JSON.stringify({ index }),
   })
 }
+// Table simulator
+export async function fetchTableState() {
+  return jsonFetch('/api/table/state')
+}
+
+export async function tableAction(seat, action, amount = 0, isHeroActing = false) {
+  return jsonFetch('/api/table/action', {
+    method: 'POST',
+    body: JSON.stringify({ seat, action, amount, is_hero_acting: isHeroActing }),
+  })
+}
+
+export async function tableReset(numPlayers = 6) {
+  return jsonFetch('/api/table/reset', {
+    method: 'POST',
+    body: JSON.stringify({ num_players: numPlayers }),
+  })
+}

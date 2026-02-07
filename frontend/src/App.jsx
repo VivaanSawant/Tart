@@ -14,7 +14,11 @@ import CameraPermission from './components/CameraPermission'
 import CardsPanel from './components/CardsPanel'
 import EquityPanel from './components/EquityPanel'
 import PotOddsPanel from './components/PotOddsPanel'
+<<<<<<< HEAD
 import CameraSelector from './components/CameraSelector'
+=======
+import TableSimulatorView from './components/TableSimulatorView'
+>>>>>>> 8d4f4a882c2f63303c4db6a0f2466c3b344c709b
 import VideoFeed from './components/VideoFeed'
 
 const SMALL_BLIND = 0.1
@@ -34,6 +38,7 @@ const EMPTY_POT = {
 }
 
 function App() {
+  const [view, setView] = useState('cards')
   const [gameState, setGameState] = useState({
     holeCards: [],
     availableCards: [],
@@ -87,13 +92,20 @@ function App() {
       potInfo: data.pot || null,
     })
     if (data.pot && data.pot.state) {
-      setPotInputs({
-        starting_pot: data.pot.state.starting_pot ?? EMPTY_POT.starting_pot,
-        current_street: data.pot.current_street || 'flop',
-        preflop: data.pot.state.preflop || EMPTY_POT.preflop,
-        flop: data.pot.state.flop || { opponent: 0, hero: 0 },
-        turn: data.pot.state.turn || { opponent: 0, hero: 0 },
-        river: data.pot.state.river || { opponent: 0, hero: 0 },
+      const pendingStreet = data.pending_betting_street || null
+      setPotInputs((prev) => {
+        const next = {
+          starting_pot: data.pot.state.starting_pot ?? EMPTY_POT.starting_pot,
+          current_street: data.pot.current_street || 'flop',
+          preflop: data.pot.state.preflop || EMPTY_POT.preflop,
+          flop: data.pot.state.flop || { opponent: 0, hero: 0 },
+          turn: data.pot.state.turn || { opponent: 0, hero: 0 },
+          river: data.pot.state.river || { opponent: 0, hero: 0 },
+        }
+        if (pendingStreet) {
+          next[pendingStreet] = prev[pendingStreet] ?? next[pendingStreet]
+        }
+        return next
       })
     }
   }
@@ -140,8 +152,17 @@ function App() {
   }
 
   const handleConfirmBetting = async (street, costToCall, didCall) => {
+    if (!didCall) {
+      // Fold: clear all cards and pot, start tracking again
+      const res = await clearHand()
+      if (res && res.ok) {
+        setPotInputs(EMPTY_POT)
+        handleFetchState()
+      }
+      return
+    }
     const opponent = costToCall
-    const hero = didCall ? costToCall : 0
+    const hero = costToCall
     const res = await confirmBetting(street, opponent, hero)
     if (res && res.ok) {
       setPotInputs((prev) => {
@@ -154,6 +175,19 @@ function App() {
       })
       handleFetchState()
     }
+  }
+
+  const handleModalCostToCallChange = (street, value) => {
+    const cost = Number(value) || 0
+    setPotInputs((prev) => {
+      const next = {
+        ...prev,
+        [street]: { opponent: cost, hero: 0 },
+        current_street: street,
+      }
+      schedulePotPush(next)
+      return next
+    })
   }
 
   const updateStartingPot = (value) => {
@@ -189,9 +223,49 @@ function App() {
     ? 'Show your 2 hole cards to the camera, then click Lock hole.'
     : 'Hole full (2/2). Click a hole card to remove it, or Clear hand for new hand.'
 
+  if (view === 'simulator') {
+    return (
+      <div className="app">
+        <nav className="app-nav">
+          <button
+            type="button"
+            className={`nav-tab ${view === 'cards' ? 'active' : ''}`}
+            onClick={() => setView('cards')}
+          >
+            Cards
+          </button>
+          <button
+            type="button"
+            className={`nav-tab ${view === 'simulator' ? 'active' : ''}`}
+            onClick={() => setView('simulator')}
+          >
+            Table Simulator
+          </button>
+        </nav>
+        <TableSimulatorView />
+      </div>
+    )
+  }
+
   return (
     <CameraPermission>
     <div className="app">
+      <nav className="app-nav">
+        <button
+          type="button"
+          className={`nav-tab ${view === 'cards' ? 'active' : ''}`}
+          onClick={() => setView('cards')}
+        >
+          Cards
+        </button>
+        <button
+          type="button"
+          className={`nav-tab ${view === 'simulator' ? 'active' : ''}`}
+          onClick={() => setView('simulator')}
+        >
+          Table Simulator
+        </button>
+      </nav>
       <header className="app-header">
         <h1>PokerPlaya</h1>
         <p className="subtitle">
@@ -208,6 +282,16 @@ function App() {
               (potInputs[gameState.pendingBettingStreet]?.hero ?? 0) || BIG_BLIND
             : BIG_BLIND
         }
+        recommendation={
+          gameState.pendingBettingStreet &&
+          gameState.potInfo?.current_street === gameState.pendingBettingStreet
+            ? gameState.potInfo.recommendation
+            : null
+        }
+        toCall={
+          gameState.potInfo?.to_call ?? null
+        }
+        onCostToCallChange={handleModalCostToCallChange}
         onSubmit={handleConfirmBetting}
       />
 
