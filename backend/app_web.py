@@ -747,6 +747,21 @@ def api_table_action():
     return jsonify({"ok": True, "state": _table_state_to_dict(result)})
 
 
+@app.route("/api/table/set_hero", methods=["POST"])
+def api_table_set_hero():
+    """Set hero seat. Call when user clicks 'I'm Hero' on a seat."""
+    data = request.get_json(force=True, silent=True) or {}
+    seat = data.get("seat")
+    if seat is None or not isinstance(seat, int) or seat < 0:
+        return jsonify({"ok": False, "error": "missing or invalid 'seat'"}), 400
+    ts = _get_table_sim()
+    n = ts.config.num_players
+    if seat >= n:
+        return jsonify({"ok": False, "error": f"seat must be 0–{n - 1}"}), 400
+    ts.set_hero_seat(seat)
+    return jsonify({"ok": True, "state": _table_state_to_dict(ts.get_state())})
+
+
 @app.route("/api/table/reset", methods=["POST"])
 def api_table_reset():
     global table_sim

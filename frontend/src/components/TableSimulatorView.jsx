@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { fetchTableState, tableAction, tableReset } from '../api/backend'
+import { fetchTableState, tableAction, tableReset, tableSetHero } from '../api/backend'
 import './TableSimulator.css'
 
 function formatMoney(val) {
@@ -112,6 +112,16 @@ export default function TableSimulatorView({
     }
   }
 
+  const handleSetHero = useCallback(async (seat) => {
+    const res = await tableSetHero(seat)
+    if (res && res.ok) {
+      setState(res.state)
+      setError(null)
+    } else {
+      setError(res?.error || 'Could not set hero')
+    }
+  }, [])
+
   if (!state) {
     return (
       <div className="table-sim-view">
@@ -204,6 +214,16 @@ export default function TableSimulatorView({
                   {isCurrent && <span className="badge turn">→</span>}
                 </div>
                 {bet > 0 && <div className="seat-bet">{formatMoney(bet)}</div>}
+                {heroSeat == null && (
+                  <button
+                    type="button"
+                    className="btn btn-seat-hero"
+                    onClick={(e) => { e.stopPropagation(); handleSetHero(seat) }}
+                    title={`I'm Hero (Seat ${seat})`}
+                  >
+                    I&apos;m Hero
+                  </button>
+                )}
               </div>
             )
           })}
@@ -213,10 +233,10 @@ export default function TableSimulatorView({
       <div className="table-actions-panel">
         {heroSeat == null ? (
           <div className="hero-prompt">
-            <h3>Press 1–4 or click when it's your turn to register as Hero</h3>
+            <h3>Click &quot;I&apos;m Hero&quot; on your seat</h3>
             <p className="hero-prompt-hint">
-              When it's your turn, use <kbd>1</kbd> Check, <kbd>2</kbd> Call, <kbd>3</kbd> Fold, <kbd>4</kbd> Raise
-              or click the buttons below. Your seat will be auto-detected.
+              Each seat has an &quot;I&apos;m Hero&quot; button. Click yours, then you&apos;ll see your Call/Fold/Raise
+              when it&apos;s your turn and simulate opponents when it&apos;s not.
             </p>
           </div>
         ) : (
@@ -300,16 +320,13 @@ export default function TableSimulatorView({
 
         {currentActor != null && !isMyTurn && (
           <div className="simulate-others">
-            <p className="simulate-label">
-              Simulate other player (Seat {currentActor})
-              {heroSeat == null && ' — or click to register as Hero if this is you'}
-            </p>
+            <p className="simulate-label">Simulate other player (Seat {currentActor})</p>
             <div className="action-buttons simulate-buttons">
               {canCheck && (
                 <button
                   type="button"
                   className="btn btn-action btn-sim"
-                  onClick={() => handleAction('check', 0, heroSeat == null)}
+                  onClick={() => handleAction('check', 0, false)}
                 >
                   Check
                 </button>
@@ -318,7 +335,7 @@ export default function TableSimulatorView({
                 <button
                   type="button"
                   className="btn btn-action btn-sim"
-                  onClick={() => handleAction('call', costToCall, heroSeat == null)}
+                  onClick={() => handleAction('call', costToCall, false)}
                 >
                   Call {formatMoney(costToCall)}
                 </button>
@@ -326,7 +343,7 @@ export default function TableSimulatorView({
               <button
                 type="button"
                 className="btn btn-action btn-sim"
-                onClick={() => handleAction('fold', 0, heroSeat == null)}
+                onClick={() => handleAction('fold', 0, false)}
               >
                 Fold
               </button>
@@ -334,7 +351,7 @@ export default function TableSimulatorView({
                 <button
                   type="button"
                   className="btn btn-action btn-sim"
-                  onClick={() => handleAction('raise', raiseAmount, heroSeat == null)}
+                  onClick={() => handleAction('raise', raiseAmount, false)}
                 >
                   Raise
                 </button>

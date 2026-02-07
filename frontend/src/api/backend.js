@@ -64,6 +64,13 @@ export async function tableAction(seat, action, amount = 0, isHeroActing = false
   })
 }
 
+export async function tableSetHero(seat) {
+  return jsonFetch('/api/table/set_hero', {
+    method: 'POST',
+    body: JSON.stringify({ seat }),
+  })
+}
+
 export async function tableReset(numPlayers = 6) {
   return jsonFetch('/api/table/reset', {
     method: 'POST',
