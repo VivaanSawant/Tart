@@ -37,6 +37,13 @@
   display: flex;
   gap: 8px;
   margin-bottom: 20px;
+  position: relative;
+  z-index: 10;
+}
+
+.move-log-tab {
+  padding: 20px 0;
+  min-height: 60vh;
 }
 
 .nav-tab {
