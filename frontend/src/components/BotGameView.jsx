@@ -136,8 +136,35 @@ export default function BotGameView() {
   const showdownTurn = showdownBoard.turn ?? null
   const showdownRiver = showdownBoard.river ?? null
 
+  const opponentCount = state.players_in_hand?.filter((s) => s !== heroSeat).length ?? 0
+  const showExploitPanel = opponentCount > 0 && !showdown
+
   return (
     <div className="table-sim-view">
+      {showExploitPanel && (
+        <div className="exploit-panel">
+          <div className="exploit-panel-glow" />
+          <div className="exploit-panel-content">
+            <span className="exploit-icon">⚠</span>
+            <div className="exploit-text">
+              <strong>Bots are playing to your weakness</strong>
+              <span className="exploit-sub">
+                Opponents use inverse aggression — they exploit your tendency. Your moves are logged and reflected in their strategy.
+              </span>
+            </div>
+            <div className="exploit-meter-wrap">
+              <span className="exploit-meter-label">Exploit intensity</span>
+              <div className="exploit-meter-track">
+                <div
+                  className="exploit-meter-fill"
+                  style={{ width: `${Math.min(100, (opponentCount / 6) * 60 + (state.pot || 0) * 8)}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {error && <p className="table-sim-error">{error}</p>}
 
       <div className="table-container">
@@ -177,7 +204,13 @@ export default function BotGameView() {
                 <div className="seat-label">
                   Seat {seat}
                   {isHero && <span className="hero-badge">YOU</span>}
+                  {!isHero && inHand && <span className="bot-badge">BOT</span>}
                 </div>
+                {!isHero && inHand && (
+                  <div className="seat-exploit-hint" title="This opponent adjusts to your play">
+                    Exploit
+                  </div>
+                )}
                 <div className="seat-badges">
                   {isDealer && <span className="badge dealer">D</span>}
                   {isSB && <span className="badge sb">SB</span>}

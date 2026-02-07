@@ -10,15 +10,61 @@
   margin-bottom: 40px;
 }
 
-.move-log-hero h1 {
+.move-log-hero h1,
+.move-log-title {
   font-size: 2rem;
   font-weight: 800;
   letter-spacing: -0.03em;
-  background: linear-gradient(135deg, #eee 0%, #3498db 100%);
+  background: linear-gradient(135deg, #eee 0%, #3498db 50%, #2ecc71 100%);
+  background-size: 200% auto;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   margin: 0 0 8px 0;
+  animation: move-log-title-shine 4s ease-in-out infinite;
+}
+
+@keyframes move-log-title-shine {
+  0%, 100% { background-position: 0% center; }
+  50% { background-position: 100% center; }
+}
+
+.move-log-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.move-log-meta-item {
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.move-log-streak {
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 20px;
+  animation: streak-pulse 2s ease-in-out infinite;
+}
+
+.move-log-streak.optimal {
+  background: linear-gradient(135deg, rgba(46, 204, 113, 0.3), rgba(46, 204, 113, 0.15));
+  color: #2ecc71;
+  border: 1px solid rgba(46, 204, 113, 0.5);
+}
+
+.move-log-streak.deviate {
+  background: linear-gradient(135deg, rgba(231, 76, 60, 0.3), rgba(231, 76, 60, 0.15));
+  color: #e74c3c;
+  border: 1px solid rgba(231, 76, 60, 0.5);
+}
+
+@keyframes streak-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.9; transform: scale(1.02); }
 }
 
 .move-log-subtitle,
@@ -59,6 +105,64 @@
   font-size: 0.85rem;
   color: #666;
   margin: -4px 0 12px 0;
+}
+
+/* Live Insights */
+.insights-section {
+  animation: insights-fade 0.6s ease-out;
+}
+
+@keyframes insights-fade {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.insights-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.insight-card {
+  background: linear-gradient(145deg, #16213e 0%, #1a2744 100%);
+  border: 1px solid #2a2a4a;
+  border-radius: 14px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: transform 0.2s, box-shadow 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+
+.insight-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #3498db, #2ecc71);
+  opacity: 0.7;
+}
+
+.insight-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px rgba(52, 152, 219, 0.2);
+}
+
+.insight-value {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #2ecc71;
+  text-shadow: 0 0 20px rgba(46, 204, 113, 0.4);
+}
+
+.insight-label {
+  font-size: 0.78rem;
+  color: #888;
+  line-height: 1.35;
 }
 
 /* Player Profile */
@@ -347,6 +451,34 @@
   min-width: 40px;
 }
 
+/* Summary callout */
+.summary-callout {
+  margin-bottom: 32px;
+}
+
+.summary-callout-inner {
+  background: linear-gradient(135deg, rgba(52, 152, 219, 0.12) 0%, rgba(46, 204, 113, 0.08) 100%);
+  border: 1px solid rgba(52, 152, 219, 0.35);
+  border-radius: 14px;
+  padding: 18px 22px;
+}
+
+.summary-callout-label {
+  display: block;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #3498db;
+  margin-bottom: 8px;
+}
+
+.summary-callout-text {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #b0b0c0;
+  line-height: 1.5;
+}
+
 /* Raise Comparison */
 .raise-comparison-chart {
   display: flex;
@@ -458,6 +590,11 @@
   font-size: 0.9rem;
 }
 
+.move-log-time {
+  font-size: 0.75rem;
+  color: #666;
+}
+
 .move-log-street {
   text-transform: capitalize;
   color: #3498db;
@@ -509,6 +646,12 @@
 .move-log-optimal strong {
   text-transform: uppercase;
   color: #3498db;
+}
+
+.move-log-pot,
+.move-log-tocall {
+  font-size: 0.85rem;
+  color: #888;
 }
 
 .move-log-detail {
