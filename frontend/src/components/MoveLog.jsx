@@ -1,17 +1,19 @@
 import { useState, useMemo, useCallback } from 'react'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
-import Card from '@mui/material/Card'
-import CardContent from '@mui/material/CardContent'
 import Chip from '@mui/material/Chip'
 import Collapse from '@mui/material/Collapse'
 import Dialog from '@mui/material/Dialog'
 import DialogContent from '@mui/material/DialogContent'
 import DialogTitle from '@mui/material/DialogTitle'
+import IconButton from '@mui/material/IconButton'
 import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
+import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import CircularProgress from '@mui/material/CircularProgress'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import { fetchDecisionTransferReport } from '../api/backend'
 import './MoveLog.css'
 
@@ -74,7 +76,6 @@ function computeStats(moves) {
   const avgEquity = equityValues.length ? equityValues.reduce((s, e) => s + e, 0) / equityValues.length : null
   const aggression = total > 0 ? Math.round((((byAction.raise || 0) + (byAction.call || 0) * 0.5) / total) * 100) : 0
 
-  // Current streak (consecutive optimal or deviated at end)
   let optimalStreak = 0
   let deviateStreak = 0
   for (let i = moves.length - 1; i >= 0; i--) {
@@ -90,7 +91,6 @@ function computeStats(moves) {
     }
   }
 
-  // Insights from existing stats (display only)
   const optFold = byOptimal.fold || 0
   const yourFold = byAction.fold || 0
   const foldGap = total > 0 ? Math.round(((yourFold - optFold) / total) * 100) : 0
@@ -107,30 +107,15 @@ function computeStats(moves) {
   const bluffRate = raiseCount > 0 ? Math.round((bluffCount / raiseCount) * 100) : 0
 
   return {
-    raiseCount,
-    total,
-    matched,
-    adherence,
-    avgEquity,
-    byAction,
-    byOptimal,
-    byStreet,
-    streetCorrect,
-    equityValues,
-    raiseComparisons,
-    aggression,
-    optimalStreak,
-    deviateStreak,
-    foldGap,
-    riverPct,
-    avgRaiseDiff,
-    bluffCount,
-    bluffByStreet,
-    avgEquityWhenBluffing,
-    bluffRate,
+    raiseCount, total, matched, adherence, avgEquity,
+    byAction, byOptimal, byStreet, streetCorrect, equityValues,
+    raiseComparisons, aggression, optimalStreak, deviateStreak,
+    foldGap, riverPct, avgRaiseDiff,
+    bluffCount, bluffByStreet, avgEquityWhenBluffing, bluffRate,
   }
 }
 
+/* ── Tiny equity cell for the heatmap ── */
 function EquityCell({ value }) {
   const pct = value != null ? Math.min(100, Math.max(0, value)) : 0
   const intensity = pct / 100
@@ -138,12 +123,17 @@ function EquityCell({ value }) {
   const g = Math.round(204 + intensity * 51)
   const b = 46
   return (
-    <div className="heatmap-cell equity-cell" style={{ backgroundColor: `rgb(${r},${g},${b})` }} title={`Equity: ${value != null ? value.toFixed(1) : '?'}%`}>
+    <div
+      className="ml-heatmap__cell"
+      style={{ backgroundColor: `rgb(${r},${g},${b})` }}
+      title={`Equity: ${value != null ? value.toFixed(1) : '?'}%`}
+    >
       {value != null ? value.toFixed(0) : '—'}
     </div>
   )
 }
 
+/* ── Decision Transfer Report Dialog ── */
 function DecisionTransferReportView({ report }) {
   const tendencies = report?.decision_tendencies_summary ?? []
   const habits = report?.habit_insights ?? []
@@ -251,6 +241,36 @@ function DecisionTransferReportView({ report }) {
   )
 }
 
+/* ── Collapsible section wrapper ── */
+function Section({ title, defaultOpen = true, children }) {
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <div className="ml-card">
+      <Box
+        onClick={() => setOpen(!open)}
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          cursor: 'pointer',
+          userSelect: 'none',
+        }}
+      >
+        <div className="ml-card__title" style={{ marginBottom: 0 }}>{title}</div>
+        <IconButton size="small" sx={{ color: '#888' }}>
+          {open ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+        </IconButton>
+      </Box>
+      <Collapse in={open}>
+        <Box sx={{ mt: 1.5 }}>{children}</Box>
+      </Collapse>
+    </div>
+  )
+}
+
+/* ================================================================
+   Main export
+   ================================================================ */
 export default function MoveLog({ moves = [] }) {
   const [hoveredMove, setHoveredMove] = useState(null)
   const [expandedMove, setExpandedMove] = useState(null)
@@ -281,148 +301,353 @@ export default function MoveLog({ moves = [] }) {
     else setReportError(res.error || 'Could not load report')
   }, [stats])
 
+  /* ── Empty state ── */
   if (moves.length === 0) {
     return (
-      <Box sx={{ maxWidth: 800, mx: 'auto' }}>
+      <Box className="move-log" sx={{ textAlign: 'center', pt: 8 }}>
+        <Typography sx={{ fontSize: '2.5rem', mb: 1 }}>&#x1F0CF;</Typography>
         <Typography variant="h5" sx={{ fontWeight: 700, mb: 1 }}>Move Log</Typography>
-        <Typography variant="body2">No moves logged yet. Play hands to see your moves, equity, optimal plays, and visual analytics here.</Typography>
+        <Typography variant="body2" color="text.secondary">
+          No moves logged yet. Play hands to see your moves, equity, optimal plays, and visual analytics here.
+        </Typography>
       </Box>
     )
   }
 
   const maxAction = Math.max(...Object.values(stats.byAction).filter(Boolean), ...Object.values(stats.byOptimal).filter(Boolean), 1)
 
-  function formatTimestamp(ts) {
-    if (ts == null) return null
-    const d = new Date(ts)
-    const now = Date.now()
-    const diff = (now - d) / 1000
-    if (diff < 60) return 'Just now'
-    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
-    return d.toLocaleDateString()
-  }
-
+  /* ============================================================ */
   return (
-    <Box className="move-log" sx={{ maxWidth: 800, mx: 'auto' }}>
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="h5" sx={{ fontWeight: 700 }}>Move Log</Typography>
-        <Typography variant="body2">Your plays with equity, optimal comparison &amp; analytics</Typography>
-      </Box>
+    <Box className="move-log">
+      {/* ── Header ── */}
+      <div className="ml-header">
+        <h1>Move Log</h1>
+        <p>{stats.total} decisions tracked &middot; {stats.matched} optimal plays</p>
+      </div>
 
-      {/* Live Insights */}
-      <section className="move-log-section insights-section">
-        <h2 className="section-title">Live Insights</h2>
-        <div className="insights-grid">
-          <div className="insight-card">
-            <span className="insight-value">{stats.adherence}%</span>
-            <span className="insight-label">Optimal play rate — bots exploit deviations</span>
-          </div>
-          <div className="insight-card">
-            <span className="insight-value">{stats.aggression}</span>
-            <span className="insight-label">Your aggression index (0–100) — bots use inverse</span>
-          </div>
-          {stats.riverPct != null && (
-            <div className="insight-card">
-              <span className="insight-value">{stats.riverPct}%</span>
-              <span className="insight-label">River accuracy — critical street for bots</span>
-            </div>
-          )}
-          {stats.avgRaiseDiff != null && (
-            <div className="insight-card">
-              <span className="insight-value">{stats.avgRaiseDiff >= 0 ? '+' : ''}{formatMoney(stats.avgRaiseDiff)}</span>
-              <span className="insight-label">Avg raise vs optimal — sizing tells</span>
-            </div>
-          )}
-          {stats.foldGap !== 0 && (
-            <div className="insight-card">
-              <span className="insight-value">{stats.foldGap > 0 ? '+' : ''}{stats.foldGap}%</span>
-              <span className="insight-label">Fold rate vs optimal — exploitable if high</span>
-            </div>
-          )}
+      {/* ── KPI Ribbon ── */}
+      <div className="ml-kpi-ribbon">
+        <div className="ml-kpi ml-kpi--green">
+          <span className="ml-kpi__value">{stats.adherence}%</span>
+          <span className="ml-kpi__label">Optimal Play Rate</span>
         </div>
-      </section>
+        <div className="ml-kpi ml-kpi--blue">
+          <span className="ml-kpi__value">{stats.aggression}</span>
+          <span className="ml-kpi__label">Aggression Index</span>
+        </div>
+        <div className="ml-kpi ml-kpi--gold">
+          <span className="ml-kpi__value">{stats.avgEquity != null ? `${stats.avgEquity.toFixed(0)}%` : '—'}</span>
+          <span className="ml-kpi__label">Avg Equity</span>
+        </div>
+        {stats.riverPct != null && (
+          <div className="ml-kpi ml-kpi--blue">
+            <span className="ml-kpi__value">{stats.riverPct}%</span>
+            <span className="ml-kpi__label">River Accuracy</span>
+          </div>
+        )}
+        {stats.avgRaiseDiff != null && (
+          <div className="ml-kpi ml-kpi--gold">
+            <span className="ml-kpi__value">{stats.avgRaiseDiff >= 0 ? '+' : ''}{formatMoney(stats.avgRaiseDiff)}</span>
+            <span className="ml-kpi__label">Raise vs Optimal</span>
+          </div>
+        )}
+        {stats.foldGap !== 0 && (
+          <div className="ml-kpi ml-kpi--red">
+            <span className="ml-kpi__value">{stats.foldGap > 0 ? '+' : ''}{stats.foldGap}%</span>
+            <span className="ml-kpi__label">Fold Gap</span>
+          </div>
+        )}
+      </div>
 
-      {/* Player Profile */}
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Typography variant="h6" gutterBottom>Player Profile</Typography>
-          <div className="profile-card">
-            <div className="profile-avatar">
-              <span className="profile-avatar-emoji">&#x1F0CF;</span>
-              <div className="profile-adherence-ring" style={{ '--adherence': stats.adherence }}>
-                <div className="profile-adherence-inner" />
+      {/* ── Player Profile + Bluff Tendencies side-by-side ── */}
+      <div className="ml-grid-2">
+        {/* Profile card */}
+        <Section title="Player Profile">
+          <div className="ml-profile-row">
+            <div className="ml-avatar">
+              <span className="ml-avatar__emoji">&#x1F0CF;</span>
+              <div className="ml-avatar__ring" style={{ '--adherence': stats.adherence }}>
+                <div className="ml-avatar__ring-inner" />
               </div>
             </div>
-            <Stack direction="row" spacing={2} sx={{ justifyContent: 'center', my: 2 }}>
+            <div className="ml-profile-stats">
               {[
                 { value: stats.total, label: 'Moves' },
                 { value: `${stats.adherence}%`, label: 'Optimal' },
-                { value: stats.avgEquity != null ? `${stats.avgEquity.toFixed(1)}%` : '—', label: 'Avg Equity' },
-                { value: stats.aggression, label: 'Aggression' },
+                { value: stats.avgEquity != null ? `${stats.avgEquity.toFixed(0)}%` : '—', label: 'Equity' },
+                { value: stats.aggression, label: 'Aggress.' },
               ].map((s) => (
-                <Paper key={s.label} sx={{ p: 1.5, textAlign: 'center', bgcolor: '#1e1e1e', minWidth: 80 }}>
-                  <Typography sx={{ fontSize: '1.3rem', fontWeight: 700, color: '#eee' }}>{s.value}</Typography>
-                  <Typography variant="caption">{s.label}</Typography>
-                </Paper>
-              ))}
-            </Stack>
-            <div className="profile-tendencies">
-              {['call', 'raise', 'fold'].map((act) => (
-                <div key={act} className="tendency-bar">
-                  <span className="tendency-label">{act}</span>
-                  <div className="tendency-track">
-                    <div className={`tendency-fill tendency-${act}`} style={{ width: `${((stats.byAction[act] || 0) / stats.total) * 100}%` }} />
-                  </div>
-                  <span className="tendency-val">{stats.byAction[act] || 0}</span>
+                <div key={s.label} className="ml-profile-stat">
+                  <span className="ml-profile-stat__value">{s.value}</span>
+                  <span className="ml-profile-stat__label">{s.label}</span>
                 </div>
               ))}
             </div>
-
-            {/* Habits & bluff behavior */}
-            <Box sx={{ mt: 2.5, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-              <Typography variant="subtitle2" sx={{ mb: 1.5, color: 'text.secondary' }}>Habits &amp; when you bluff</Typography>
-              <Stack spacing={1} sx={{ fontSize: '0.85rem' }}>
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center' }}>
-                  <Typography variant="body2"><strong>Aggression:</strong> {stats.aggression}/100 — bots use inverse to exploit.</Typography>
-                </Box>
-                <Box>
-                  <Typography variant="body2"><strong>Bluff condition:</strong> Raise &gt;{Math.round(BLUFF_OVER_RAISE_PERCENT * 100)}% over suggested amount for your equity.</Typography>
-                </Box>
-                {stats.bluffCount > 0 ? (
-                  <>
-                    <Typography variant="body2"><strong>Bluffs this session:</strong> {stats.bluffCount} {(stats.byAction.raise || 0) > 0 ? `${stats.bluffRate}% of your raises` : '—'}</Typography>
-                    {stats.avgEquityWhenBluffing != null && (
-                      <Typography variant="body2"><strong>Avg equity when bluffing:</strong> {stats.avgEquityWhenBluffing.toFixed(1)}%</Typography>
-                    )}
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
-                      <Typography variant="body2" component="span"><strong>Bluffs by street:</strong></Typography>
-                      {['preflop', 'flop', 'turn', 'river'].filter((st) => (stats.bluffByStreet[st] || 0) > 0).map((st) => (
-                        <Chip key={st} label={`${st} ${stats.bluffByStreet[st]}`} size="small" sx={{ height: 20, fontSize: '0.7rem', bgcolor: 'rgba(231,76,60,0.2)', color: '#e74c3c' }} />
-                      ))}
-                      {['preflop', 'flop', 'turn', 'river'].every((st) => !(stats.bluffByStreet[st] || 0)) && (
-                        <Typography variant="caption" color="text.secondary">—</Typography>
-                      )}
-                    </Box>
-                  </>
-                ) : (
-                  <Typography variant="body2" color="text.secondary">No bluffs detected this session (raises within suggested range).</Typography>
-                )}
-              </Stack>
-            </Box>
-
-            <Button
-              variant="outlined"
-              size="medium"
-              onClick={handleOpenDecisionReport}
-              sx={{ mt: 2, alignSelf: 'flex-start' }}
-            >
-              View decision insights
-            </Button>
           </div>
-        </CardContent>
-      </Card>
 
+          {/* Tendency bars */}
+          {['call', 'raise', 'fold'].map((act) => (
+            <div key={act} className="ml-tendency">
+              <span className="ml-tendency__label">{act}</span>
+              <div className="ml-tendency__track">
+                <div
+                  className={`ml-tendency__fill ml-tendency__fill--${act}`}
+                  style={{ width: `${((stats.byAction[act] || 0) / stats.total) * 100}%` }}
+                />
+              </div>
+              <span className="ml-tendency__val">{stats.byAction[act] || 0}</span>
+            </div>
+          ))}
+
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={handleOpenDecisionReport}
+            sx={{ mt: 2, fontSize: '0.75rem', textTransform: 'none', borderColor: 'rgba(52,152,219,0.4)', color: '#3498db' }}
+          >
+            Decision Insights Report
+          </Button>
+        </Section>
+
+        {/* Bluff & Habits card */}
+        <Section title="Bluff Analysis">
+          <Stack spacing={1.2} sx={{ fontSize: '0.82rem' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="body2" color="text.secondary">Bluff threshold</Typography>
+              <Chip label={`>${Math.round(BLUFF_OVER_RAISE_PERCENT * 100)}% over suggested`} size="small" sx={{ height: 20, fontSize: '0.68rem', bgcolor: 'rgba(231,76,60,0.15)', color: '#e74c3c' }} />
+            </Box>
+            {stats.bluffCount > 0 ? (
+              <>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="body2">Bluffs this session</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 700, color: '#e74c3c' }}>
+                    {stats.bluffCount} <Typography component="span" variant="caption" color="text.secondary">({stats.bluffRate}% of raises)</Typography>
+                  </Typography>
+                </Box>
+                {stats.avgEquityWhenBluffing != null && (
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography variant="body2">Avg equity when bluffing</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 700 }}>{stats.avgEquityWhenBluffing.toFixed(1)}%</Typography>
+                  </Box>
+                )}
+                <Box>
+                  <Typography variant="body2" sx={{ mb: 0.5, color: 'text.secondary' }}>Bluffs by street</Typography>
+                  <Box sx={{ display: 'flex', gap: 0.8, flexWrap: 'wrap' }}>
+                    {['preflop', 'flop', 'turn', 'river'].filter((st) => (stats.bluffByStreet[st] || 0) > 0).map((st) => (
+                      <Chip key={st} label={`${st} ${stats.bluffByStreet[st]}`} size="small" sx={{ height: 22, fontSize: '0.68rem', bgcolor: 'rgba(231,76,60,0.15)', color: '#e74c3c', textTransform: 'capitalize' }} />
+                    ))}
+                  </Box>
+                </Box>
+              </>
+            ) : (
+              <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
+                No bluffs detected yet — all raises within suggested range.
+              </Typography>
+            )}
+            <Box sx={{ pt: 0.5, borderTop: '1px solid rgba(255,255,255,0.06)', mt: 0.5 }}>
+              <Typography variant="body2" color="text.secondary">
+                Bots use your aggression index ({stats.aggression}) inversely to exploit your tendencies.
+              </Typography>
+            </Box>
+          </Stack>
+        </Section>
+      </div>
+
+      {/* ── Your Moves vs Optimal + Street Performance ── */}
+      <div className="ml-grid-2">
+        <Section title="You vs Optimal">
+          {['call', 'raise', 'fold', 'check'].map((action) => (
+            <div key={action} className="ml-cmp-row">
+              <span className="ml-cmp-label">{action}</span>
+              <div className="ml-cmp-bars">
+                <div className="ml-cmp-bar">
+                  <span className="ml-cmp-bar__tag">You</span>
+                  <div className="ml-cmp-bar__track">
+                    <div className={`ml-cmp-bar__fill ml-cmp-bar__fill--you-${action}`} style={{ width: `${((stats.byAction[action] || 0) / maxAction) * 100}%` }} />
+                  </div>
+                  <span className="ml-cmp-bar__val">{stats.byAction[action] || 0}</span>
+                </div>
+                <div className="ml-cmp-bar">
+                  <span className="ml-cmp-bar__tag">Opt</span>
+                  <div className="ml-cmp-bar__track">
+                    <div
+                      className={`ml-cmp-bar__fill ml-cmp-bar__fill--opt-${action}`}
+                      style={{ width: `${((action === 'check' ? (stats.byOptimal.check || 0) + (stats.byOptimal.no_bet || 0) : (stats.byOptimal[action] || 0)) / maxAction) * 100}%` }}
+                    />
+                  </div>
+                  <span className="ml-cmp-bar__val">{action === 'check' ? (stats.byOptimal.check || 0) + (stats.byOptimal.no_bet || 0) : stats.byOptimal[action] || 0}</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </Section>
+
+        <Section title="Performance by Street">
+          {['preflop', 'flop', 'turn', 'river'].map((street) => {
+            const total = stats.byStreet[street] || 0
+            const correct = stats.streetCorrect[street] || 0
+            const pct = total > 0 ? (correct / total) * 100 : 0
+            return (
+              <div key={street} className="ml-street-row">
+                <span className="ml-street-name">{street}</span>
+                <div className="ml-street-track">
+                  <div className="ml-street-fill" style={{ width: `${pct}%`, backgroundColor: pct >= 70 ? '#2ecc71' : pct >= 50 ? '#f1c40f' : '#e74c3c' }} />
+                </div>
+                <span className="ml-street-stat">{correct}/{total}</span>
+              </div>
+            )
+          })}
+        </Section>
+      </div>
+
+      {/* ── Equity Heatmap + Equity Trend ── */}
+      <div className="ml-grid-2">
+        <Section title="Equity Heatmap">
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>Each cell = one move. Darker green = higher equity.</Typography>
+          <div className="ml-heatmap">
+            {moves.map((m, i) => (
+              <div key={i} onMouseEnter={() => setHoveredMove(i)} onMouseLeave={() => setHoveredMove(null)}>
+                <EquityCell value={m.equity} />
+              </div>
+            ))}
+          </div>
+          {hoveredMove != null && moves[hoveredMove] && (
+            <Typography variant="caption" sx={{ mt: 1, display: 'block', color: '#a0a0c0' }}>
+              Move #{hoveredMove + 1}: {moves[hoveredMove].action} on {moves[hoveredMove].street} — Equity: {moves[hoveredMove].equity != null ? `${Number(moves[hoveredMove].equity).toFixed(1)}%` : '—'}
+            </Typography>
+          )}
+        </Section>
+
+        {stats.equityValues.length > 0 ? (
+          <Section title="Equity Trend">
+            <div className="ml-trend-wrap">
+              <div className="ml-trend-axis">
+                {[100, 75, 50, 25, 0].map((n) => (
+                  <span key={n}>{n}%</span>
+                ))}
+              </div>
+              <div className="ml-trend-chart">
+                <svg viewBox="0 0 400 80" className="ml-trend-svg" preserveAspectRatio="none">
+                  <polyline
+                    fill="none"
+                    stroke="url(#eqGrad)"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    points={stats.equityValues.map((v, i) => {
+                      const denom = Math.max(stats.equityValues.length - 1, 1)
+                      return `${(i / denom) * 400},${70 - (v / 100) * 60}`
+                    }).join(' ')}
+                  />
+                  <defs>
+                    <linearGradient id="eqGrad" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#e74c3c" />
+                      <stop offset="50%" stopColor="#f1c40f" />
+                      <stop offset="100%" stopColor="#2ecc71" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
+                  <Typography variant="caption" color="text.secondary">First</Typography>
+                  <Typography variant="caption" color="text.secondary">Latest</Typography>
+                </Box>
+              </div>
+            </div>
+          </Section>
+        ) : (
+          <Section title="Equity Trend">
+            <Typography variant="body2" color="text.secondary">Not enough data yet.</Typography>
+          </Section>
+        )}
+      </div>
+
+      {/* ── Raise Comparison (full width) ── */}
+      {stats.raiseComparisons.length > 0 && (
+        <Section title="Raise Sizing: You vs Optimal">
+          {stats.raiseComparisons.map((r, i) => {
+            const max = Math.max(r.actual, r.optimal, 0.1)
+            return (
+              <div key={i} className="ml-raise-row">
+                <div className="ml-raise-bar-wrap">
+                  <div className="ml-raise-bar ml-raise-bar--actual" style={{ width: `${(r.actual / max) * 100}%` }} />
+                  <span className="ml-raise-label">You: {formatMoney(r.actual)}</span>
+                </div>
+                <div className="ml-raise-bar-wrap">
+                  <div className="ml-raise-bar ml-raise-bar--optimal" style={{ width: `${(r.optimal / max) * 100}%` }} />
+                  <span className="ml-raise-label">Opt: {formatMoney(r.optimal)}</span>
+                </div>
+              </div>
+            )
+          })}
+        </Section>
+      )}
+
+      {/* ── Session Summary Callout ── */}
+      <div className="ml-callout">
+        <span className="ml-callout__tag">Session Summary</span>
+        <p className="ml-callout__text">
+          {stats.total} decisions &middot; {stats.matched} optimal ({stats.adherence}%) &middot; Avg equity {stats.avgEquity != null ? `${stats.avgEquity.toFixed(1)}%` : '—'}.
+          {' '}Bots in Train mode use your Move Log aggression to play against your weaknesses.
+        </p>
+      </div>
+
+      {/* ── All Moves (full width) ── */}
+      <Section title={`All Moves (${moves.length})`} defaultOpen={moves.length <= 12}>
+        <Typography variant="caption" sx={{ display: 'block', mb: 1, color: '#666' }}>
+          Raise flagged as <Box component="span" sx={{ color: '#e74c3c', fontWeight: 700 }}>BLUFF</Box> when &gt;{Math.round(BLUFF_OVER_RAISE_PERCENT * 100)}% over the suggested amount.
+        </Typography>
+        <Stack spacing={0.8}>
+          {moves.map((m, i) => {
+            const opt = (m.optimalMove || 'no_bet').toLowerCase()
+            const act = (m.action || '').toLowerCase()
+            const matched = act === opt || (act === 'check' && opt === 'no_bet')
+            const isExpanded = expandedMove === i
+            const bluff = isBluffRaise(m)
+
+            return (
+              <div
+                key={i}
+                className={`ml-move ${matched ? 'ml-move--match' : 'ml-move--deviate'}`}
+                onClick={() => setExpandedMove(isExpanded ? null : i)}
+                onMouseEnter={() => setHoveredMove(i)}
+                onMouseLeave={() => setHoveredMove(null)}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, flexWrap: 'wrap' }}>
+                  <Typography sx={{ fontWeight: 700, fontSize: '0.8rem', color: '#ccc' }}>#{m.handNumber ?? '—'}</Typography>
+                  <Chip label={m.street} size="small" sx={{ height: 18, fontSize: '0.65rem', textTransform: 'capitalize', bgcolor: 'rgba(52,152,219,0.15)', color: '#3498db' }} />
+                  <Chip
+                    label={matched ? 'Optimal' : 'Deviated'}
+                    size="small"
+                    sx={{
+                      height: 18,
+                      fontSize: '0.65rem',
+                      bgcolor: matched ? 'rgba(46,204,113,0.15)' : 'rgba(231,76,60,0.15)',
+                      color: matched ? '#2ecc71' : '#e74c3c',
+                    }}
+                  />
+                  <Box sx={{ ml: 'auto', display: 'flex', gap: 1, alignItems: 'center' }}>
+                    <Typography component="span" sx={{ fontWeight: 700, fontSize: '0.8rem', textTransform: 'capitalize', color: '#eee' }}>{m.action}</Typography>
+                    {m.amount > 0 && <Typography component="span" sx={{ color: '#f1c40f', fontSize: '0.8rem', fontWeight: 600 }}>{formatMoney(m.amount)}</Typography>}
+                    {bluff && <Chip label="BLUFF" size="small" sx={{ height: 18, fontSize: '0.6rem', bgcolor: 'rgba(231,76,60,0.2)', color: '#e74c3c', fontWeight: 700 }} />}
+                    <Typography component="span" sx={{ color: '#888', fontSize: '0.78rem' }}>
+                      {m.equity != null ? `${Number(m.equity).toFixed(0)}% eq` : ''}
+                    </Typography>
+                  </Box>
+                </Box>
+                <Collapse in={isExpanded}>
+                  <Stack spacing={0.5} sx={{ mt: 1.2, pt: 1, borderTop: '1px solid rgba(255,255,255,0.06)', fontSize: '0.82rem' }}>
+                    <Typography variant="body2">Your action: <strong>{m.action}</strong> {m.amount > 0 && formatMoney(m.amount)}{bluff && <Box component="span" sx={{ color: '#e74c3c', fontWeight: 700, ml: 0.5 }}>BLUFF</Box>}</Typography>
+                    <Typography variant="body2">Optimal: <strong>{m.optimalMove}</strong>{m.suggestedRaise != null && m.action === 'raise' && ` (suggested: ${formatMoney(m.suggestedRaise)})`}</Typography>
+                    <Typography variant="body2">Equity at decision: {m.equity != null ? `${Number(m.equity).toFixed(1)}%` : '—'}</Typography>
+                  </Stack>
+                </Collapse>
+              </div>
+            )
+          })}
+        </Stack>
+      </Section>
+
+      {/* ── Decision Report Dialog ── */}
       <Dialog open={reportOpen} onClose={() => setReportOpen(false)} maxWidth="md" fullWidth scroll="paper">
         <DialogTitle>Decision Transfer Report</DialogTitle>
         <DialogContent>
@@ -439,227 +664,6 @@ export default function MoveLog({ moves = [] }) {
           )}
         </DialogContent>
       </Dialog>
-
-      {/* Optimal vs Actual */}
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Typography variant="h6" gutterBottom>Your Moves vs Optimal</Typography>
-          <div className="comparison-chart">
-            {['call', 'raise', 'fold', 'check'].map((action) => (
-              <div key={action} className="comparison-row">
-                <span className="comparison-label">{action}</span>
-                <div className="comparison-bars">
-                  <div className="comparison-bar-wrap">
-                    <span className="comparison-bar-label">You</span>
-                    <div className="comparison-bar-track">
-                      <div className={`comparison-bar-fill you ${action}`} style={{ width: `${((stats.byAction[action] || 0) / maxAction) * 100}%` }} />
-                    </div>
-                    <span className="comparison-bar-val">{stats.byAction[action] || 0}</span>
-                  </div>
-                  <div className="comparison-bar-wrap">
-                    <span className="comparison-bar-label">Optimal</span>
-                    <div className="comparison-bar-track">
-                      <div className={`comparison-bar-fill optimal ${action}`} style={{ width: `${((action === 'check' ? (stats.byOptimal.check || 0) + (stats.byOptimal.no_bet || 0) : (stats.byOptimal[action] || 0)) / maxAction) * 100}%` }} />
-                    </div>
-                    <span className="comparison-bar-val">{action === 'check' ? (stats.byOptimal.check || 0) + (stats.byOptimal.no_bet || 0) : stats.byOptimal[action] || 0}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Equity Heatmap */}
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Typography variant="h6" gutterBottom>Equity Heatmap</Typography>
-          <Typography variant="body2" sx={{ mb: 1 }}>Each cell = one move. Darker green = higher equity.</Typography>
-          <div className="equity-heatmap">
-            {moves.map((m, i) => (
-              <div key={i} className="heatmap-cell-wrap" onMouseEnter={() => setHoveredMove(i)} onMouseLeave={() => setHoveredMove(null)}>
-                <EquityCell value={m.equity} />
-              </div>
-            ))}
-          </div>
-          {hoveredMove != null && moves[hoveredMove] && (
-            <Typography variant="caption" sx={{ mt: 1, display: 'block' }}>
-              Move #{hoveredMove + 1}: {moves[hoveredMove].action} on {moves[hoveredMove].street} — Equity: {moves[hoveredMove].equity != null ? `${Number(moves[hoveredMove].equity).toFixed(1)}%` : '—'}
-            </Typography>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Summary callout */}
-      <section className="move-log-section summary-callout">
-        <div className="summary-callout-inner">
-          <span className="summary-callout-label">Session summary</span>
-          <p className="summary-callout-text">
-            {stats.total} decisions · {stats.matched} optimal ({stats.adherence}%) · Avg equity {stats.avgEquity != null ? `${stats.avgEquity.toFixed(1)}%` : '—'}.
-            Bots in Train mode use your Move Log aggression to play against your weakness.
-          </p>
-        </div>
-      </section>
-
-      {/* Street Performance */}
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Typography variant="h6" gutterBottom>Performance by Street</Typography>
-          <div className="street-heatmap">
-            {['preflop', 'flop', 'turn', 'river'].map((street) => {
-              const total = stats.byStreet[street] || 0
-              const correct = stats.streetCorrect[street] || 0
-              const pct = total > 0 ? (correct / total) * 100 : 0
-              return (
-                <div key={street} className="street-cell">
-                  <span className="street-name">{street}</span>
-                  <div className="street-bar-wrap">
-                    <div className="street-bar-fill" style={{ width: `${pct}%`, backgroundColor: pct >= 70 ? '#2ecc71' : pct >= 50 ? '#f1c40f' : '#e74c3c' }} />
-                  </div>
-                  <span className="street-stat">{correct}/{total}</span>
-                </div>
-              )
-            })}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Raise Amount Comparison */}
-      {stats.raiseComparisons.length > 0 && (
-        <Card sx={{ mb: 3 }}>
-          <CardContent>
-            <Typography variant="h6" gutterBottom>Raise Amount: You vs Optimal</Typography>
-            <div className="raise-comparison-chart">
-              {stats.raiseComparisons.map((r, i) => {
-                const max = Math.max(r.actual, r.optimal, 0.1)
-                return (
-                  <div key={i} className="raise-row">
-                    <div className="raise-bar-wrap">
-                      <div className="raise-bar actual" style={{ width: `${(r.actual / max) * 100}%` }} />
-                      <span className="raise-label">You: {formatMoney(r.actual)}</span>
-                    </div>
-                    <div className="raise-bar-wrap">
-                      <div className="raise-bar optimal" style={{ width: `${(r.optimal / max) * 100}%` }} />
-                      <span className="raise-label">Opt: {formatMoney(r.optimal)}</span>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Equity Trend (EV graph with y-axis labels) */}
-      {stats.equityValues.length > 0 && (
-        <Card sx={{ mb: 3 }}>
-          <CardContent>
-            <Typography variant="h6" gutterBottom>Equity Trend</Typography>
-            <div className="equity-trend">
-              <Box sx={{ display: 'flex', alignItems: 'stretch', gap: 0.5 }}>
-                <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', py: 0.5, minWidth: 28 }}>
-                  {[100, 75, 50, 25, 0].map((n) => (
-                    <Typography key={n} variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem' }}>{n}%</Typography>
-                  ))}
-                </Box>
-                <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <svg viewBox="0 0 400 80" className="trend-svg" preserveAspectRatio="none">
-                    <polyline
-                      fill="none"
-                      stroke="url(#equityGrad)"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      points={stats.equityValues.map((v, i) => {
-                        const denom = Math.max(stats.equityValues.length - 1, 1)
-                        return `${(i / denom) * 400},${70 - (v / 100) * 60}`
-                      }).join(' ')}
-                    />
-                    <defs>
-                      <linearGradient id="equityGrad" x1="0" y1="0" x2="1" y2="0">
-                        <stop offset="0%" stopColor="#e74c3c" />
-                        <stop offset="50%" stopColor="#f1c40f" />
-                        <stop offset="100%" stopColor="#2ecc71" />
-                      </linearGradient>
-                    </defs>
-                  </svg>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
-                    <Typography variant="caption" color="text.secondary">First move</Typography>
-                    <Typography variant="caption" color="text.secondary">Last move</Typography>
-                  </Box>
-                </Box>
-              </Box>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Move List */}
-      <Card>
-        <CardContent>
-          <Typography variant="h6" gutterBottom>All Moves</Typography>
-          <Typography variant="caption" sx={{ display: 'block', mb: 1, color: 'text.secondary' }}>
-            Raise flagged as <Box component="span" sx={{ color: '#e74c3c', fontWeight: 700 }}>BLUFF</Box> when your raise is more than {Math.round(BLUFF_OVER_RAISE_PERCENT * 100)}% over the suggested amount for your equity.
-          </Typography>
-          <Stack spacing={1}>
-            {moves.map((m, i) => {
-              const opt = (m.optimalMove || 'no_bet').toLowerCase()
-              const act = (m.action || '').toLowerCase()
-              const matched = act === opt || (act === 'check' && opt === 'no_bet')
-              const isExpanded = expandedMove === i
-              const bluff = isBluffRaise(m)
-
-              return (
-                <Paper
-                  key={i}
-                  sx={{
-                    p: 1.5,
-                    cursor: 'pointer',
-                    bgcolor: '#1e1e1e',
-                    borderLeft: `3px solid ${matched ? '#2ecc71' : '#e74c3c'}`,
-                    '&:hover': { bgcolor: '#333' },
-                  }}
-                  onClick={() => setExpandedMove(isExpanded ? null : i)}
-                  onMouseEnter={() => setHoveredMove(i)}
-                  onMouseLeave={() => setHoveredMove(null)}
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                    <Typography sx={{ fontWeight: 600, fontSize: '0.85rem' }}>Hand #{m.handNumber ?? '—'}</Typography>
-                    <Chip label={m.street} size="small" sx={{ height: 20, fontSize: '0.7rem' }} />
-                    <Chip
-                      label={matched ? '✓ Optimal' : '≠ Deviated'}
-                      size="small"
-                      sx={{
-                        height: 20,
-                        fontSize: '0.7rem',
-                        bgcolor: matched ? 'rgba(46,204,113,0.2)' : 'rgba(231,76,60,0.2)',
-                        color: matched ? '#2ecc71' : '#e74c3c',
-                      }}
-                    />
-                    <Box sx={{ ml: 'auto', display: 'flex', gap: 1.5, alignItems: 'center', fontSize: '0.85rem' }}>
-                      <Typography component="span" sx={{ fontWeight: 600, fontSize: '0.85rem' }}>{m.action}</Typography>
-                      {m.amount > 0 && <Typography component="span" sx={{ color: '#f1c40f', fontSize: '0.85rem' }}>{formatMoney(m.amount)}</Typography>}
-                      {bluff && (
-                        <Typography component="span" sx={{ color: '#e74c3c', fontWeight: 700, fontSize: '0.85rem', letterSpacing: '0.05em' }}>BLUFF</Typography>
-                      )}
-                      <Typography component="span" sx={{ color: '#a0a0c0', fontSize: '0.85rem' }}>
-                        Eq: {m.equity != null ? `${Number(m.equity).toFixed(1)}%` : '—'}
-                      </Typography>
-                    </Box>
-                  </Box>
-                  <Collapse in={isExpanded}>
-                    <Stack spacing={0.5} sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid', borderColor: 'divider', fontSize: '0.85rem' }}>
-                      <Typography variant="body2">Your action: <strong>{m.action}</strong> {m.amount > 0 && formatMoney(m.amount)}{bluff && <Box component="span" sx={{ color: '#e74c3c', fontWeight: 700, ml: 0.5 }}> BLUFF</Box>}</Typography>
-                      <Typography variant="body2">Optimal: <strong>{m.optimalMove}</strong>{m.suggestedRaise != null && m.action === 'raise' && ` (suggested: ${formatMoney(m.suggestedRaise)})`}</Typography>
-                      <Typography variant="body2">Equity at decision: {m.equity != null ? `${Number(m.equity).toFixed(1)}%` : '—'}</Typography>
-                    </Stack>
-                  </Collapse>
-                </Paper>
-              )
-            })}
-          </Stack>
-        </CardContent>
-      </Card>
     </Box>
   )
 }
