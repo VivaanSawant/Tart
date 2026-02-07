@@ -146,6 +146,7 @@ export default function TableSimulatorView({
   const stoppedRef = useRef(false)
   const stateRef = useRef(null)
   stateRef.current = state
+  const handleActionRef = useRef(null)
 
   const heroSeat = state?.hero_seat ?? null
   const currentActor = state?.current_actor ?? null
@@ -218,6 +219,7 @@ export default function TableSimulatorView({
     },
     [state, street, equityPreflop, equityFlop, equityTurn, equityRiver, potInfo?.recommendation, onHeroMove]
   )
+  handleActionRef.current = handleAction
 
   const handleHeroAction = useCallback(
     (action, amount = 0) => handleAction(action, amount, true),
@@ -298,9 +300,14 @@ export default function TableSimulatorView({
     }
     else if (action === 'allin') { action = 'raise'; amount = 999 }
     setVoiceStatus(`Voice → Seat ${actor}: ${action.toUpperCase()} ${amount > 0 ? formatMoney(amount) : ''}`)
-    const res = await tableAction(actor, action, amount, isHero)
-    if (res && res.ok) { setState(res.state); setError(null) }
-    else setError(res?.error || 'Invalid action')
+    // Use handleActionRef so hero voice moves are logged in the MoveLog
+    if (handleActionRef.current) {
+      await handleActionRef.current(action, amount, isHero)
+    } else {
+      const res = await tableAction(actor, action, amount, isHero)
+      if (res && res.ok) { setState(res.state); setError(null) }
+      else setError(res?.error || 'Invalid action')
+    }
   }, [])
 
   const startListening = useCallback(async () => {
