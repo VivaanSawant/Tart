@@ -9,9 +9,21 @@ import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import './MoveLog.css'
 
+// If actual raise exceeds suggested raise by this much (e.g. 0.25 = 25%), flag as BLUFF
+const BLUFF_OVER_RAISE_PERCENT = 0.25
+
 function formatMoney(val) {
   if (val == null || Number.isNaN(Number(val))) return '—'
   return '$' + Number(val).toFixed(2)
+}
+
+function isBluffRaise(move) {
+  const act = (move?.action || '').toLowerCase()
+  if (act !== 'raise') return false
+  const amount = Number(move?.amount)
+  const suggested = Number(move?.suggestedRaise)
+  if (amount == null || Number.isNaN(amount) || suggested == null || Number.isNaN(suggested) || suggested <= 0) return false
+  return amount > suggested * (1 + BLUFF_OVER_RAISE_PERCENT)
 }
 
 function computeStats(moves) {
@@ -363,12 +375,16 @@ export default function MoveLog({ moves = [] }) {
       <Card>
         <CardContent>
           <Typography variant="h6" gutterBottom>All Moves</Typography>
+          <Typography variant="caption" sx={{ display: 'block', mb: 1, color: 'text.secondary' }}>
+            Raise flagged as <Box component="span" sx={{ color: '#e74c3c', fontWeight: 700 }}>BLUFF</Box> when your raise is more than {Math.round(BLUFF_OVER_RAISE_PERCENT * 100)}% over the suggested amount for your equity.
+          </Typography>
           <Stack spacing={1}>
             {moves.map((m, i) => {
               const opt = (m.optimalMove || 'no_bet').toLowerCase()
               const act = (m.action || '').toLowerCase()
               const matched = act === opt || (act === 'check' && opt === 'no_bet')
               const isExpanded = expandedMove === i
+              const bluff = isBluffRaise(m)
 
               return (
                 <Paper
@@ -397,9 +413,12 @@ export default function MoveLog({ moves = [] }) {
                         color: matched ? '#2ecc71' : '#e74c3c',
                       }}
                     />
-                    <Box sx={{ ml: 'auto', display: 'flex', gap: 1.5, fontSize: '0.85rem' }}>
+                    <Box sx={{ ml: 'auto', display: 'flex', gap: 1.5, alignItems: 'center', fontSize: '0.85rem' }}>
                       <Typography component="span" sx={{ fontWeight: 600, fontSize: '0.85rem' }}>{m.action}</Typography>
                       {m.amount > 0 && <Typography component="span" sx={{ color: '#f1c40f', fontSize: '0.85rem' }}>{formatMoney(m.amount)}</Typography>}
+                      {bluff && (
+                        <Typography component="span" sx={{ color: '#e74c3c', fontWeight: 700, fontSize: '0.85rem', letterSpacing: '0.05em' }}>BLUFF</Typography>
+                      )}
                       <Typography component="span" sx={{ color: '#a0a0c0', fontSize: '0.85rem' }}>
                         Eq: {m.equity != null ? `${Number(m.equity).toFixed(1)}%` : '—'}
                       </Typography>
@@ -407,7 +426,7 @@ export default function MoveLog({ moves = [] }) {
                   </Box>
                   <Collapse in={isExpanded}>
                     <Stack spacing={0.5} sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid', borderColor: 'divider', fontSize: '0.85rem' }}>
-                      <Typography variant="body2">Your action: <strong>{m.action}</strong> {m.amount > 0 && formatMoney(m.amount)}</Typography>
+                      <Typography variant="body2">Your action: <strong>{m.action}</strong> {m.amount > 0 && formatMoney(m.amount)}{bluff && <Box component="span" sx={{ color: '#e74c3c', fontWeight: 700, ml: 0.5 }}> BLUFF</Box>}</Typography>
                       <Typography variant="body2">Optimal: <strong>{m.optimalMove}</strong>{m.suggestedRaise != null && m.action === 'raise' && ` (suggested: ${formatMoney(m.suggestedRaise)})`}</Typography>
                       <Typography variant="body2">Equity at decision: {m.equity != null ? `${Number(m.equity).toFixed(1)}%` : '—'}</Typography>
                     </Stack>
