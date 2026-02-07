@@ -13,6 +13,7 @@ import BettingModal from './components/BettingModal'
 import CardsPanel from './components/CardsPanel'
 import EquityPanel from './components/EquityPanel'
 import PotOddsPanel from './components/PotOddsPanel'
+import TableSimulatorView from './components/TableSimulatorView'
 import VideoFeed from './components/VideoFeed'
 
 const SMALL_BLIND = 0.1
@@ -32,6 +33,7 @@ const EMPTY_POT = {
 }
 
 function App() {
+  const [view, setView] = useState('cards')
   const [gameState, setGameState] = useState({
     holeCards: [],
     availableCards: [],
@@ -187,8 +189,48 @@ function App() {
     ? 'Show your 2 hole cards to the camera, then click Lock hole.'
     : 'Hole full (2/2). Click a hole card to remove it, or Clear hand for new hand.'
 
+  if (view === 'simulator') {
+    return (
+      <div className="app">
+        <nav className="app-nav">
+          <button
+            type="button"
+            className={`nav-tab ${view === 'cards' ? 'active' : ''}`}
+            onClick={() => setView('cards')}
+          >
+            Cards
+          </button>
+          <button
+            type="button"
+            className={`nav-tab ${view === 'simulator' ? 'active' : ''}`}
+            onClick={() => setView('simulator')}
+          >
+            Table Simulator
+          </button>
+        </nav>
+        <TableSimulatorView />
+      </div>
+    )
+  }
+
   return (
     <div className="app">
+      <nav className="app-nav">
+        <button
+          type="button"
+          className={`nav-tab ${view === 'cards' ? 'active' : ''}`}
+          onClick={() => setView('cards')}
+        >
+          Cards
+        </button>
+        <button
+          type="button"
+          className={`nav-tab ${view === 'simulator' ? 'active' : ''}`}
+          onClick={() => setView('simulator')}
+        >
+          Table Simulator
+        </button>
+      </nav>
       <header className="app-header">
         <h1>PokerPlaya</h1>
         <p className="subtitle">
