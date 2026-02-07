@@ -1,6 +1,13 @@
-# PokerPlaya – Live card detection
+# Poker Psych
 
-Flask backend + React frontend for real-time card detection and hand tracking.
+Poker Psych is a real-time behavioral analysis tool for poker players and psychiatrists. Using a phone’s camera and microphone, it tracks cards, betting patterns, and player behavior during live poker sessions to build statistical and psychological profiles of both you and your opponents.
+
+Players use Poker Psych to improve decision-making and risk taking, while psychiatrists gain insight into behavioral tendencies under pressure. The platform features an LLM-powered Poker Coach, voice-controlled betting, and adaptive poker bots that exploit player weaknesses based on collected game data, as well as custom designed Ace cards featuring our beloved Scotty Dog.
+
+All analysis and agent coordination are powered by a Daedalus MCP server, with a computer vision model handling live card detection and tracking.
+
+---- SETUP INSTRUCTIONS -----
+Flask backend + React frontend.
 
 ## Backend setup
 
