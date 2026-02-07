@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { fetchTableState, tableAction, tableReset, tableSetHero, transcribeChunk } from '../api/backend'
+import { useCallback, useEffect, useState } from 'react'
+import { fetchTableState, tableAction, tableReset, tableSetHero } from '../api/backend'
+import { getCardImage } from '../utils/cardImages'
 import './TableSimulator.css'
 
 function formatMoney(val) {
@@ -83,15 +84,23 @@ function parseVoiceCommand(transcript) {
 /* ---------- component ---------- */
 export default function TableSimulatorView({
   holeCount = 0,
-  flopCount = 0,
-  hasTurn = false,
-  hasRiver = false,
+  flopCards = [],
+  turnCard = null,
+  riverCard = null,
+  potInfo = null,
+  equityPreflop = null,
+  equityFlop = null,
+  equityTurn = null,
+  equityRiver = null,
 }) {
   const [state, setState] = useState(null)
   const [raiseAmount, setRaiseAmount] = useState(0.4)
   const [numPlayers, setNumPlayers] = useState(6)
   const [error, setError] = useState(null)
 
+  const flopCount = flopCards.length
+  const hasTurn = turnCard != null
+  const hasRiver = riverCard != null
   // Voice state
   const [listening, setListening] = useState(false)
   const [transcript, setTranscript] = useState('')
@@ -134,6 +143,26 @@ export default function TableSimulatorView({
     const interval = setInterval(loadState, 500)
     return () => clearInterval(interval)
   }, [])
+
+  // Whenever a raise is recommended, auto-fill the raise amount input with suggested_raise
+  useEffect(() => {
+    if (potInfo?.recommendation !== 'raise') return
+    const suggested = potInfo?.suggested_raise
+    if (suggested != null) {
+      const val = Number(suggested)
+      if (!Number.isNaN(val) && val > 0) setRaiseAmount(val)
+      return
+    }
+    // Fallback: half pot or min raise above cost to call
+    const potBefore = potInfo?.pot_before_call
+    const toCall = potInfo?.to_call ?? 0
+    if (potBefore != null && Number(potBefore) > 0) {
+      const halfPot = 0.5 * Number(potBefore)
+      setRaiseAmount(Math.max(0.2, halfPot))
+    } else if (toCall > 0) {
+      setRaiseAmount(Math.max(0.4, toCall + 0.2))
+    }
+  }, [potInfo?.recommendation, potInfo?.suggested_raise, potInfo?.pot_before_call, potInfo?.to_call])
 
   const handleAction = useCallback(
     async (action, amount = 0, isHeroActing = false) => {
@@ -383,16 +412,41 @@ export default function TableSimulatorView({
       <div className="table-container">
         <div className="table-felt">
           <div className="table-center">
-            <div className="table-pot">Pot {formatMoney(state.pot)}</div>
-            <div className="table-street">{state.street}</div>
-            <div className="table-hand">Hand #{state.hand_number}</div>
-            <div className="table-blinds">
-              D:{state.dealer_seat} SB:{state.sb_seat} BB:{state.bb_seat}
-              <span className="blinds-hint"> (rotate each hand)</span>
+            <div className="table-info-row">
+              <div className="table-pot">Pot {formatMoney(state.pot)}</div>
+              {(() => {
+                const eq = hasRiver ? equityRiver
+                  : hasTurn ? equityTurn
+                  : flopCount >= 3 ? equityFlop
+                  : holeCount >= 2 ? equityPreflop
+                  : null
+                if (eq == null) return null
+                const pct = Number(eq)
+                if (Number.isNaN(pct)) return null
+                const color = pct >= 65 ? '#2ecc71' : pct >= 45 ? '#f1c40f' : '#e74c3c'
+                return (
+                  <div className="table-equity" style={{ color }}>
+                    Equity: {pct.toFixed(1)}%
+                  </div>
+                )
+              })()}
             </div>
-            {heroPosition && (
-              <div className="table-hero-pos">You: {heroPosition}</div>
-            )}
+            <div className="table-board">
+              {[
+                flopCards[0] || null,
+                flopCards[1] || null,
+                flopCards[2] || null,
+                turnCard,
+                riverCard,
+              ].map((card, i) => {
+                const img = card ? getCardImage(card) : null
+                return (
+                  <div key={i} className={`board-card-slot${img ? ' board-card-slot--filled' : ''}`}>
+                    {img && <img src={img} alt={card} className="board-card-img" />}
+                  </div>
+                )
+              })}
+            </div>
           </div>
 
           {seatPositions.map(({ seat, x, y }) => {

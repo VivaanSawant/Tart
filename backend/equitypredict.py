@@ -213,16 +213,17 @@ def _bet_recommendation_for_equity(equity: float | None) -> str:
     """
     Return a bet sizing recommendation based on win probability (0–100).
     Equity = percent chance to win vs random hand.
+    (+5% aggression: thresholds lowered by 5)
     """
     if equity is None:
         return "—"
-    if equity >= 70:
+    if equity >= 65:
         return "Value bet: 2/3–1× pot"
-    if equity >= 55:
+    if equity >= 50:
         return "Bet: 1/2–2/3 pot"
-    if equity >= 45:
+    if equity >= 40:
         return "Check or small bet: 1/3 pot"
-    if equity >= 30:
+    if equity >= 25:
         return "Check/call or fold if raised"
     return "Check/fold"
 

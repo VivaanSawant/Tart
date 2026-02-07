@@ -182,9 +182,10 @@ class TableSimulator:
         self._last_raiser_seat = None
 
         n = self.config.num_players
-        # Postflop: left of dealer acts first. Heads-up: button acts first.
-        first = self._dealer_seat if n == 2 else (self._dealer_seat + 1) % n
-        self._to_act = self._action_order_from(first)
+        # Postflop (flop/turn/river): action starts at small blind; if SB folded, next available player.
+        # Heads-up: button acts first postflop.
+        first = self._dealer_seat if n == 2 else self._sb_seat
+        self._to_act = self._action_order_from(first)  # only players still in hand, clockwise from first
         self._current_actor = self._to_act[0] if self._to_act else None
         return False
 
