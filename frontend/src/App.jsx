@@ -12,7 +12,6 @@ import CameraSelector from './components/CameraSelector'
 import CardsPanel from './components/CardsPanel'
 import EquityPanel from './components/EquityPanel'
 import PotOddsPanel from './components/PotOddsPanel'
-import CameraSelector from './components/CameraSelector'
 import TableSimulatorView from './components/TableSimulatorView'
 import VideoFeed from './components/VideoFeed'
 
