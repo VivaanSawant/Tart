@@ -413,7 +413,11 @@ export default function TableSimulatorView({
         return createPortal(
           <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
             <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', flexWrap: 'nowrap' }}>
-              {isMyTurn && canAct ? (
+              {!canAct ? (
+                <Typography variant="caption" sx={{ color: '#e67e22', whiteSpace: 'nowrap' }}>
+                  Scan {cardsNeededForStreet(street)} to continue
+                </Typography>
+              ) : isMyTurn ? (
                 <>
                   {canCheck && (
                     <Button size="small" variant="contained" sx={btnSx} onClick={() => handleAction('check', 0, true)}>

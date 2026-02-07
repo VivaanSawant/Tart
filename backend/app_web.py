@@ -920,7 +920,7 @@ def api_table_action():
     print(f"[TABLE ACTION] seat={seat} action={action} amount={amount} hero={is_hero_acting} "
           f"street={street_before} current_actor={table_state.current_actor} "
           f"players_in={list(table_state.players_in_hand)}")
-    if is_hero_acting and not _has_cards_for_street(street_before):
+    if not _has_cards_for_street(street_before):
         needed = {
             "preflop": "2 hole cards",
             "flop": "3 flop cards",
