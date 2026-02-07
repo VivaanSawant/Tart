@@ -3,10 +3,12 @@ import './App.css'
 
 import {
   clearHand,
+  confirmBetting,
   fetchState,
   lockHole,
   lockHoleAll,
 } from './api/backend'
+import BettingModal from './components/BettingModal'
 import CameraPermission from './components/CameraPermission'
 import CameraSelector from './components/CameraSelector'
 import CardsPanel from './components/CardsPanel'
@@ -89,6 +91,15 @@ function App() {
 
 
 
+  const handleBettingSubmit = async (street, amount, isCall) => {
+    // isCall=true means call/check/raise, isCall=false means fold
+    const action = isCall ? (amount > 0 ? 'call' : 'check') : 'fold'
+    const res = await confirmBetting(action, amount)
+    if (res && res.ok) {
+      handleFetchState()
+    }
+  }
+
   const canLockHole = gameState.holeCards.length < 2
   const holeHint = canLockHole
     ? 'Show your 2 hole cards to the camera, then click Lock hole.'
@@ -158,6 +169,16 @@ function App() {
         </aside>
       </div>
     </div>
+
+    <BettingModal
+      open={!!gameState.pendingBettingStreet}
+      street={gameState.pendingBettingStreet}
+      costToCall={gameState.potInfo?.to_call ?? 0}
+      recommendation={
+        gameState.betRecommendations?.[gameState.pendingBettingStreet] ?? null
+      }
+      onSubmit={handleBettingSubmit}
+    />
     </CameraPermission>
   )
 }

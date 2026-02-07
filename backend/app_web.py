@@ -657,6 +657,38 @@ def api_pot_post():
     return jsonify({"ok": True})
 
 
+@app.route("/api/transcribe_chunk", methods=["POST"])
+def api_transcribe_chunk():
+    """
+    Transcribe an audio chunk using Dedalus Labs API.
+    Accepts multipart form with "chunk" file (webm/wav/mp3/etc).
+    Returns { "ok": true, "text": "transcribed text" }.
+    """
+    import tempfile
+    chunk_file = request.files.get("chunk")
+    if not chunk_file or not chunk_file.filename:
+        return jsonify({"ok": False, "error": "missing 'chunk' file"}), 400
+    suffix = os.path.splitext(chunk_file.filename)[1] or ".webm"
+    path = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+            chunk_file.save(tmp.name)
+            path = tmp.name
+        from dedalus_client import transcribe_audio
+        text = transcribe_audio(path)
+        return jsonify({"ok": True, "text": text.strip()})
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+    finally:
+        if path and os.path.isfile(path):
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
+
+
 @app.route("/api/clear", methods=["POST"])
 def api_clear():
     """Full hand restart: clear all cards, reset table sim, clear card state file."""

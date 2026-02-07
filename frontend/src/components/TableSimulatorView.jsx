@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
-import { fetchTableState, tableAction, tableReset, tableSetHero } from '../api/backend'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { fetchTableState, tableAction, tableReset, tableSetHero, transcribeChunk } from '../api/backend'
 import './TableSimulator.css'
 
 function formatMoney(val) {
@@ -19,6 +19,68 @@ function cardsNeededForStreet(street) {
   }
 }
 
+/* ---------- voice command parser ---------- */
+const WORD_TO_NUM = {
+  zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5,
+  six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+  eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15,
+  sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20,
+  thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90,
+  hundred: 100,
+}
+
+function spokenToNumber(str) {
+  const s = str.toLowerCase().trim()
+  const direct = parseFloat(s)
+  if (!isNaN(direct)) return direct
+
+  let total = 0
+  const words = s.split(/\s+/)
+  for (const w of words) {
+    const n = WORD_TO_NUM[w]
+    if (n !== undefined) {
+      if (n === 100) total = total === 0 ? 100 : total * 100
+      else total += n
+    }
+  }
+  return total || null
+}
+
+function parseVoiceCommand(transcript) {
+  if (!transcript) return null
+  const t = transcript.toLowerCase().trim()
+
+  if (/\bfold\b/.test(t)) return { action: 'fold' }
+  if (/\bcheck\b/.test(t)) return { action: 'check' }
+  if (/\ball[\s-]?in\b/.test(t)) return { action: 'allin' }
+
+  // "call 20 cents" / "call fifty" / "call 1.50" / "call" (no amount)
+  const callMatch = t.match(/\bcall(?:\s+(.+))?/)
+  if (callMatch) {
+    if (!callMatch[1]) return { action: 'call', amount: null }
+    const rest = callMatch[1]
+    const isCents = /\bcents?\b/.test(rest)
+    const numPart = rest.replace(/\bcents?\b|\bdollars?\b/g, '').trim()
+    let amount = spokenToNumber(numPart)
+    if (amount != null && isCents) amount = amount / 100
+    return { action: 'call', amount: amount }
+  }
+
+  // "raise 50" / "raise to 100" / "raise 1 dollar"
+  const raiseMatch = t.match(/\braise\s+(?:to\s+)?(.+)/)
+  if (raiseMatch) {
+    const rest = raiseMatch[1]
+    const isCents = /\bcents?\b/.test(rest)
+    const numPart = rest.replace(/\bcents?\b|\bdollars?\b/g, '').trim()
+    let amount = spokenToNumber(numPart)
+    if (amount != null && isCents) amount = amount / 100
+    return { action: 'raise', amount: amount }
+  }
+
+  return null
+}
+
+/* ---------- component ---------- */
 export default function TableSimulatorView({
   holeCount = 0,
   flopCount = 0,
@@ -29,6 +91,18 @@ export default function TableSimulatorView({
   const [raiseAmount, setRaiseAmount] = useState(0.4)
   const [numPlayers, setNumPlayers] = useState(6)
   const [error, setError] = useState(null)
+
+  // Voice state
+  const [listening, setListening] = useState(false)
+  const [transcript, setTranscript] = useState('')
+  const [voiceStatus, setVoiceStatus] = useState('')
+  const [voiceError, setVoiceError] = useState('')
+  const mediaRecorderRef = useRef(null)
+  const streamRef = useRef(null)
+  const stoppedRef = useRef(false)
+  // We store the latest state in a ref so the voice callback always has the freshest value
+  const stateRef = useRef(null)
+  stateRef.current = state
 
   const heroSeat = state?.hero_seat ?? null
   const heroPosition = state?.hero_position ?? null
@@ -66,7 +140,6 @@ export default function TableSimulatorView({
       if (!state || state.current_actor == null) return
       const res = await tableAction(state.current_actor, action, amount, isHeroActing)
       if (res && res.ok) {
-        // Use full backend state to avoid any merge/closure issues when advancing streets
         setState(res.state)
         setError(null)
       } else {
@@ -122,6 +195,141 @@ export default function TableSimulatorView({
     }
   }, [])
 
+  /* ---------- voice listening ---------- */
+  const stopListening = useCallback(() => {
+    stoppedRef.current = true
+    setListening(false)
+    setVoiceStatus('')
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      try { mediaRecorderRef.current.stop() } catch (_) {}
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop())
+      streamRef.current = null
+    }
+  }, [])
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      stoppedRef.current = true
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(t => t.stop())
+      }
+    }
+  }, [])
+
+  const executeVoiceCommand = useCallback(async (cmd) => {
+    if (!cmd) return
+    const s = stateRef.current
+    if (!s || s.current_actor == null) {
+      setVoiceError('No player to act right now')
+      return
+    }
+    const actor = s.current_actor
+    const isHero = s.hero_seat != null && actor === s.hero_seat
+    const cost = s.cost_to_call ?? 0
+
+    let action = cmd.action
+    let amount = 0
+
+    if (action === 'fold') {
+      amount = 0
+    } else if (action === 'check') {
+      if (cost > 0) {
+        setVoiceError(`Cannot check — cost to call is ${formatMoney(cost)}`)
+        return
+      }
+      amount = 0
+    } else if (action === 'call') {
+      amount = cmd.amount != null ? cmd.amount : cost
+      if (amount <= 0) amount = cost  // "call" with no number means call the current bet
+    } else if (action === 'raise') {
+      amount = cmd.amount || 0.2
+    } else if (action === 'allin') {
+      action = 'raise'
+      amount = 999  // large raise = all-in
+    }
+
+    setVoiceStatus(`Voice → Seat ${actor}: ${action.toUpperCase()} ${amount > 0 ? formatMoney(amount) : ''}`)
+
+    const res = await tableAction(actor, action, amount, isHero)
+    if (res && res.ok) {
+      setState(res.state)
+      setError(null)
+    } else {
+      setError(res?.error || 'Invalid action')
+    }
+  }, [])
+
+  const startListening = useCallback(async () => {
+    setTranscript('')
+    setVoiceError('')
+    setVoiceStatus('Starting mic…')
+    stoppedRef.current = false
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      streamRef.current = stream
+      setListening(true)
+      setVoiceStatus('Listening…')
+
+      const startChunk = () => {
+        if (stoppedRef.current) return
+        const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+          ? 'audio/webm;codecs=opus'
+          : 'audio/webm'
+        const mr = new MediaRecorder(stream, { mimeType })
+        const chunks = []
+        mr.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) chunks.push(e.data)
+        }
+        mr.onstop = async () => {
+          if (stoppedRef.current || chunks.length === 0) return
+          const blob = new Blob(chunks, { type: mimeType })
+          const kb = (blob.size / 1024).toFixed(1)
+          setVoiceStatus(`Sending ${kb} KB…`)
+          try {
+            const result = await transcribeChunk(blob)
+            if (stoppedRef.current) return
+            if (result && result.ok && result.text) {
+              setTranscript(prev => prev ? prev + ' ' + result.text : result.text)
+              setVoiceStatus(`Heard: "${result.text}"`)
+
+              const cmd = parseVoiceCommand(result.text)
+              if (cmd) {
+                await executeVoiceCommand(cmd)
+                // Don't stop — keep listening for the next player
+              }
+            } else if (result && !result.ok) {
+              setVoiceError(result.error || 'Transcription failed')
+              setVoiceStatus('Error — see below')
+            } else {
+              setVoiceStatus('Listening… (no speech detected)')
+            }
+          } catch (err) {
+            if (!stoppedRef.current) {
+              setVoiceError(err.message)
+              setVoiceStatus('Error — see below')
+            }
+          }
+        }
+        mediaRecorderRef.current = mr
+        mr.start()
+        setTimeout(() => {
+          if (mr.state === 'recording') mr.stop()
+          if (!stoppedRef.current) startChunk()
+        }, 3000)
+      }
+
+      startChunk()
+    } catch (err) {
+      setVoiceError('Mic access denied: ' + err.message)
+      setListening(false)
+    }
+  }, [executeVoiceCommand])
+
+  /* ---------- render ---------- */
   if (!state) {
     return (
       <div className="table-sim-view">
@@ -130,7 +338,6 @@ export default function TableSimulatorView({
     )
   }
 
-  // Position seats around an ellipse (6–10 players)
   const n = state.num_players || 6
   const seatPositions = []
   for (let i = 0; i < n; i++) {
@@ -365,6 +572,41 @@ export default function TableSimulatorView({
                 />
               </div>
             </div>
+          </div>
+        )}
+
+        {/* ---- Voice betting for ALL players ---- */}
+        {currentActor != null && (
+          <div className="voice-betting-panel">
+            <div className="voice-betting-header">
+              <button
+                type="button"
+                className={`btn ${listening ? 'btn-voice-stop' : 'btn-voice-listen'}`}
+                onClick={listening ? stopListening : startListening}
+              >
+                {listening ? '⏹ Stop Listening' : '🎤 Voice Input'}
+              </button>
+              <span className="voice-betting-hint">
+                {listening
+                  ? `Listening for Seat ${currentActor}… say "call", "fold", "raise 1 dollar", etc.`
+                  : 'Click to use voice commands for any player\'s turn'}
+              </span>
+            </div>
+
+            {voiceStatus && (
+              <p className="voice-status">{voiceStatus}</p>
+            )}
+
+            {transcript && (
+              <div className="voice-transcript">
+                <label>Transcript:</label>
+                <div className="transcript-box">{transcript}</div>
+              </div>
+            )}
+
+            {voiceError && (
+              <p className="voice-error">{voiceError}</p>
+            )}
           </div>
         )}
       </div>

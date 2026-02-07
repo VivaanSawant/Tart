@@ -575,6 +575,81 @@
   margin-left: 4px;
 }
 
+/* Voice betting in modal */
+.modal-voice-section {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid #2a2a4a;
+  text-align: center;
+}
+
+.btn-voice-listen {
+  background: #2ecc71;
+  color: #fff;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-voice-listen:hover {
+  background: #27ae60;
+}
+
+.btn-voice-stop {
+  background: #e74c3c;
+  color: #fff;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  animation: pulse-red 1.2s ease-in-out infinite;
+}
+.btn-voice-stop:hover {
+  background: #c0392b;
+}
+@keyframes pulse-red {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.5); }
+  50% { box-shadow: 0 0 12px 4px rgba(231, 76, 60, 0.3); }
+}
+
+.modal-voice-status {
+  margin: 8px 0 0;
+  font-size: 0.82rem;
+  color: #f1c40f;
+}
+
+.modal-live-transcript {
+  margin-top: 10px;
+  text-align: left;
+}
+.modal-live-transcript label {
+  font-size: 0.78rem;
+  color: #888;
+  display: block;
+  margin-bottom: 4px;
+}
+.transcript-box {
+  background: #1a1a2e;
+  border: 1px solid #2a2a4a;
+  border-radius: 6px;
+  padding: 8px 10px;
+  color: #eee;
+  font-size: 0.88rem;
+  min-height: 36px;
+  max-height: 80px;
+  overflow-y: auto;
+}
+
+.modal-voice-error {
+  margin: 8px 0 0;
+  font-size: 0.78rem;
+  color: #e74c3c;
+}
+
 /* Camera selector */
 .camera-selector {
   margin-bottom: 12px;

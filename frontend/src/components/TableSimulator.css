@@ -385,3 +385,88 @@
   background: #1a1a2e;
   color: #eee;
 }
+
+/* Voice betting panel */
+.voice-betting-panel {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #2a2a4a;
+}
+
+.voice-betting-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.voice-betting-hint {
+  font-size: 0.85rem;
+  color: #888;
+}
+
+.btn-voice-listen {
+  background: #2ecc71;
+  color: #fff;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-voice-listen:hover {
+  background: #27ae60;
+}
+
+.btn-voice-stop {
+  background: #e74c3c;
+  color: #fff;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  animation: voice-pulse 1.2s ease-in-out infinite;
+}
+.btn-voice-stop:hover {
+  background: #c0392b;
+}
+@keyframes voice-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.5); }
+  50% { box-shadow: 0 0 12px 4px rgba(231, 76, 60, 0.3); }
+}
+
+.voice-status {
+  margin: 8px 0 0;
+  font-size: 0.85rem;
+  color: #f1c40f;
+}
+
+.voice-transcript {
+  margin-top: 10px;
+}
+.voice-transcript label {
+  font-size: 0.78rem;
+  color: #888;
+  display: block;
+  margin-bottom: 4px;
+}
+.transcript-box {
+  background: #1a1a2e;
+  border: 1px solid #2a2a4a;
+  border-radius: 6px;
+  padding: 8px 10px;
+  color: #eee;
+  font-size: 0.88rem;
+  min-height: 36px;
+  max-height: 100px;
+  overflow-y: auto;
+}
+
+.voice-error {
+  margin: 8px 0 0;
+  font-size: 0.78rem;
+  color: #e74c3c;
+}
