@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { botAction, botFetchState, botNextHand, botStart } from '../api/backend'
 import { getCardImage } from '../utils/cardImages'
+import useVoiceInput from '../hooks/useVoiceInput'
 
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
@@ -12,6 +13,8 @@ import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import CircularProgress from '@mui/material/CircularProgress'
+import MicIcon from '@mui/icons-material/Mic'
+import StopIcon from '@mui/icons-material/Stop'
 
 import './TableSimulator.css'
 
@@ -80,6 +83,32 @@ export default function BotGameView() {
       setError(res?.error || 'Invalid action')
     }
   }, [])
+
+  /* ---------- voice commands ---------- */
+  const handleVoiceCommand = useCallback((cmd) => {
+    // We read from the latest state values via the closure; useVoiceInput
+    // calls onCommandRef.current so the latest handleVoiceCommand is always used.
+    if (currentActor == null || currentActor !== heroSeat) {
+      return // not hero's turn
+    }
+    let action = cmd.action
+    let amount = 0
+    if (action === 'fold') { amount = 0 }
+    else if (action === 'check') {
+      if (costToCall > 0) return // can't check
+    } else if (action === 'call') {
+      amount = cmd.amount != null ? cmd.amount : costToCall
+      if (amount <= 0) amount = costToCall
+    } else if (action === 'raise') {
+      if (cmd.amount != null && cmd.amount > 0) { amount = cmd.amount }
+      else return // couldn't parse raise amount
+    } else if (action === 'allin') {
+      action = 'raise'; amount = 999
+    }
+    handleAction(action, amount)
+  }, [currentActor, heroSeat, costToCall, handleAction])
+
+  const voice = useVoiceInput({ onCommand: handleVoiceCommand })
 
   const handleNextHand = useCallback(async () => {
     const res = await botNextHand()
@@ -334,6 +363,20 @@ export default function BotGameView() {
               <Button size="small" variant="contained" sx={btnSx} onClick={handleNextHand}>
                 Next hand
               </Button>
+              <Button
+                size="small"
+                variant="contained"
+                sx={voice.listening ? { bgcolor: '#444', '&:hover': { bgcolor: '#555' } } : btnSx}
+                startIcon={voice.listening ? <StopIcon /> : <MicIcon />}
+                onClick={voice.listening ? voice.stopListening : voice.startListening}
+              >
+                {voice.listening ? 'Stop' : 'Voice'}
+              </Button>
+              {voice.listening && (
+                <Typography variant="caption" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 180 }}>
+                  {voice.voiceStatus || 'Listening…'}
+                </Typography>
+              )}
             </Stack>
           </Box>,
           slot
@@ -392,6 +435,20 @@ export default function BotGameView() {
                     Seat {currentActor} (bot) is acting…
                   </Typography>
                 </Stack>
+              )}
+              <Button
+                size="small"
+                variant="contained"
+                sx={voice.listening ? { bgcolor: '#444', '&:hover': { bgcolor: '#555' } } : btnSx}
+                startIcon={voice.listening ? <StopIcon /> : <MicIcon />}
+                onClick={voice.listening ? voice.stopListening : voice.startListening}
+              >
+                {voice.listening ? 'Stop' : 'Voice'}
+              </Button>
+              {voice.listening && (
+                <Typography variant="caption" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 180 }}>
+                  {voice.voiceStatus || 'Listening…'}
+                </Typography>
               )}
             </Stack>
           </Box>,
