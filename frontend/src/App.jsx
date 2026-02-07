@@ -19,19 +19,15 @@ import {
 } from './api/backend'
 import CameraPermission from './components/CameraPermission'
 import CameraSelector from './components/CameraSelector'
+import BetRecommendationPanel from './components/BetRecommendationPanel'
 import EquityPanel from './components/EquityPanel'
 import LandingPage from './components/LandingPage'
 import MoveLog from './components/MoveLog'
-import PotOddsPanel from './components/PotOddsPanel'
 import BotGameView from './components/BotGameView'
 import TableSimulatorView from './components/TableSimulatorView'
 import VideoFeed from './components/VideoFeed'
 
-const SMALL_BLIND = 0.1
-const BIG_BLIND = 0.2
-const BUY_IN = 10
-
-const TAB_VALUES = ['game', 'movelog']
+const TAB_VALUES = ['game', 'movelog', 'bots']
 
 function App() {
   const [showLanding, setShowLanding] = useState(true)
@@ -151,6 +147,10 @@ function App() {
           <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', py: 2 }}>
             <MoveLog moves={moveLog} />
           </Box>
+        ) : activeTab === 'bots' ? (
+          <div className="table-hero">
+            <BotGameView />
+          </div>
         ) : (
           /* Game (default) and Info tabs both show the same layout:
              table on top, 3-column info panels below, video feed bottom-right */
@@ -183,65 +183,93 @@ function App() {
               />
             </Box>
 
-            {/* Info panels — 3-column layout below the table */}
+            {/* Info panels — 3 equal-height cards, no scroll */}
             <Box
               sx={{
                 flex: 1,
                 minHeight: 0,
                 display: 'grid',
                 gridTemplateColumns: '1fr 1fr 1fr',
-                gap: 1.5,
-                pt: 1,
+                gap: 1.25,
+                pt: 2,
                 pb: 0.5,
+                alignItems: 'stretch',
               }}
             >
-              <Paper sx={{ p: 1.5, overflowY: 'auto', minHeight: 0 }}>
-                <Typography variant="h6" gutterBottom sx={{ fontSize: '0.85rem' }}>Play style</Typography>
-                <Typography variant="body2" sx={{ mb: 1, fontSize: '0.78rem' }}>
-                  Affects call/raise equity thresholds.
-                </Typography>
-                <ToggleButtonGroup
-                  value={gameState.playStyle}
-                  exclusive
-                  onChange={handlePlayStyleChange}
-                  size="small"
-                  sx={{ flexWrap: 'wrap' }}
-                >
-                  <ToggleButton value="conservative" sx={{ fontSize: '0.75rem', py: 0.5 }}>Conservative</ToggleButton>
-                  <ToggleButton value="neutral" sx={{ fontSize: '0.75rem', py: 0.5 }}>Neutral</ToggleButton>
-                  <ToggleButton value="aggressive" sx={{ fontSize: '0.75rem', py: 0.5 }}>Aggressive</ToggleButton>
-                </ToggleButtonGroup>
-                {/* Video feed tucked under play style */}
-                <Box sx={{ mt: 1.5 }}>
+              <Paper
+                sx={{
+                  p: 1.25,
+                  minHeight: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  overflow: 'hidden',
+                }}
+              >
+                <Typography variant="h6" gutterBottom sx={{ fontSize: '1.05rem', fontWeight: 600, flexShrink: 0 }}>Card Detection</Typography>
+                <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
                   <CameraSelector />
-                  <Box sx={{ mt: 0.5 }}>
+                  <Box sx={{ mt: 0.5, flex: 1, minHeight: 0, maxHeight: 140, overflow: 'hidden' }}>
                     <VideoFeed src="/video_feed" />
                   </Box>
                 </Box>
               </Paper>
 
-              <Paper sx={{ p: 1.5, overflowY: 'auto', minHeight: 0 }}>
-                <EquityPanel
-                  equityPreflop={gameState.equityPreflop}
-                  equityFlop={gameState.equityFlop}
-                  equityTurn={gameState.equityTurn}
-                  equityRiver={gameState.equityRiver}
-                  equityError={gameState.equityError}
-                  betRecommendations={gameState.betRecommendations}
-                  potInfo={gameState.potInfo}
-                  holeCount={gameState.holeCards.length}
-                  flopCount={gameState.flopCards.length}
-                  playersInHand={gameState.table?.players_in_hand?.length ?? 6}
-                />
+              <Paper
+                sx={{
+                  p: 1.25,
+                  minHeight: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  overflow: 'hidden',
+                }}
+              >
+                <Typography variant="h6" gutterBottom sx={{ fontSize: '1.05rem', fontWeight: 600, flexShrink: 0 }}>Win Probability</Typography>
+                <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+                  <EquityPanel
+                    equityPreflop={gameState.equityPreflop}
+                    equityFlop={gameState.equityFlop}
+                    equityTurn={gameState.equityTurn}
+                    equityRiver={gameState.equityRiver}
+                    equityError={gameState.equityError}
+                    holeCount={gameState.holeCards.length}
+                    flopCount={gameState.flopCards.length}
+                    playersInHand={gameState.table?.players_in_hand?.length ?? 6}
+                    equityOnly
+                  />
+                </Box>
               </Paper>
 
-              <Paper sx={{ p: 1.5, overflowY: 'auto', minHeight: 0 }}>
-                <PotOddsPanel
-                  potInfo={gameState.potInfo}
-                  smallBlind={SMALL_BLIND}
-                  bigBlind={BIG_BLIND}
-                  buyIn={BUY_IN}
-                />
+              <Paper
+                sx={{
+                  p: 1.25,
+                  minHeight: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  overflow: 'hidden',
+                }}
+              >
+                <Typography variant="h6" gutterBottom sx={{ fontSize: '1.05rem', fontWeight: 600, flexShrink: 0 }}>Betting &amp; Aggression</Typography>
+                <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                  <ToggleButtonGroup
+                    value={gameState.playStyle}
+                    exclusive
+                    onChange={handlePlayStyleChange}
+                    size="small"
+                    sx={{ flexWrap: 'wrap', mb: 1, flexShrink: 0 }}
+                  >
+                    <ToggleButton value="conservative" sx={{ fontSize: '0.75rem', py: 0.5 }}>Conservative</ToggleButton>
+                    <ToggleButton value="neutral" sx={{ fontSize: '0.75rem', py: 0.5 }}>Neutral</ToggleButton>
+                    <ToggleButton value="aggressive" sx={{ fontSize: '0.75rem', py: 0.5 }}>Aggressive</ToggleButton>
+                  </ToggleButtonGroup>
+                  <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+                    <BetRecommendationPanel
+                      potInfo={gameState.potInfo}
+                      betRecommendations={gameState.betRecommendations}
+                      holeCount={gameState.holeCards.length}
+                      flopCount={gameState.flopCards.length}
+                    />
+                  </Box>
+                </Box>
               </Paper>
             </Box>
           </Box>

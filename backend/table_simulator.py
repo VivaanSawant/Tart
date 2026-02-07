@@ -284,14 +284,15 @@ class TableSimulator:
         if seat in self._to_act:
             self._to_act.remove(seat)
 
-        # If to_act empty and all matched → next street or end
-        if not self._to_act and self._all_matched():
+        # If everyone has acted this round, advance to next street or end hand
+        if not self._to_act:
             hand_ended = self._advance_street()
             if hand_ended:
                 if self.on_hand_ended:
                     self.on_hand_ended(self.get_state())
                 self._start_new_hand()
                 return self.get_state()
+            # _advance_street() already set _current_actor for the new street
         else:
             self._current_actor = self._to_act[0] if self._to_act else None
 

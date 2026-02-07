@@ -127,8 +127,8 @@ export default function TableSimulatorView({
     state &&
     ((street === 'preflop' && holeCount >= 2) ||
       (street === 'flop' && holeCount >= 2 && flopCount >= 3) ||
-      (street === 'turn' && holeCount >= 2 && flopCount >= 3 && hasTurn) ||
-      (street === 'river' && holeCount >= 2 && flopCount >= 3 && hasTurn && hasRiver))
+      (street === 'turn' && holeCount >= 2 && flopCount >= 3) ||
+      (street === 'river' && holeCount >= 2 && flopCount >= 3))
   const canAct = !!hasCardsForStreet
   const costToCall = state?.cost_to_call ?? 0
   const canCheck = costToCall <= 0
