@@ -87,4 +87,11 @@ export async function setPlayStyle(aggression) {
     method: 'POST',
     body: JSON.stringify({ aggression }),
   })
+// Dedalus audio transcription
+export async function transcribeChunk(blob) {
+  const fd = new FormData()
+  fd.append('chunk', blob, 'chunk.webm')
+  const res = await fetch('/api/transcribe_chunk', { method: 'POST', body: fd })
+  if (!res.ok) return null
+  return res.json()
 }
