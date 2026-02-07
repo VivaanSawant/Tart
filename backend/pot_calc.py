@@ -93,38 +93,67 @@ class PotState:
         return state
 
 
-# Thresholds for value betting
-RAISE_WHEN_NO_BET_EQUITY = 55.0   # Equity % to recommend raise when we can check or bet
-RAISE_WHEN_FACING_BET_EQUITY = 60.0  # Equity % to recommend raise over call when facing a bet
+# Default thresholds (neutral play)
+RAISE_WHEN_NO_BET_EQUITY = 55.0
+RAISE_WHEN_FACING_BET_EQUITY = 60.0
+
+# Aggression: lower thresholds = more calls/raises (aggressive), higher = fewer (conservative)
+# call_buffer: added to break-even required equity. Aggressive: call with less. Conservative: call only with more.
+# raise_no_bet / raise_facing_bet: equity % to recommend bet/raise.
+AGGRESSION_THRESHOLDS = {
+    "aggressive": {
+        "call_buffer": -12.0,
+        "raise_when_no_bet": 30.0,
+        "raise_when_facing_bet": 34.0,
+    },
+    "neutral": {
+        "call_buffer": 0.0,
+        "raise_when_no_bet": 40.0,
+        "raise_when_facing_bet": 44.0,
+    },
+    "conservative": {
+        "call_buffer": 3.0,
+        "raise_when_no_bet": 50.0,
+        "raise_when_facing_bet": 54.0,
+    },
+}
+
+
+def get_thresholds(aggression: str | None) -> dict:
+    """Return threshold dict for aggression level. Default to neutral if unknown."""
+    if aggression and aggression in AGGRESSION_THRESHOLDS:
+        return AGGRESSION_THRESHOLDS[aggression].copy()
+    return AGGRESSION_THRESHOLDS["neutral"].copy()
 
 
 def recommendation(
     equity_pct: float | None,
     street: str,
     pot_state: PotState,
+    aggression: str | None = "neutral",
 ) -> tuple[str, str]:
     """
     Given our hand equity (0–100), the street we're on, and pot state,
-    return (verdict, reason).
-
-    Verdict: "call" | "fold" | "raise" | "check" | "no_bet"
-    - "no_bet": unknown state.
-    - "check": no bet to call, equity not strong enough to value bet.
-    - "raise": strong equity — value bet (no bet) or raise for value (facing bet).
-    - "call": facing bet, equity >= required → call is +EV.
-    - "fold": facing bet, equity < required (pot odds) → fold.
+    return (verdict, reason). aggression: "aggressive" | "neutral" | "conservative"
+    adjusts call/raise thresholds (aggressive = lower equity to call/raise).
     """
     if street not in STREETS:
         return "no_bet", f"Unknown street: {street}"
 
+    th = get_thresholds(aggression)
+    raise_no_bet = th["raise_when_no_bet"]
+    raise_facing_bet = th["raise_when_facing_bet"]
+    call_buffer = th["call_buffer"]
+
     to_call = pot_state.amount_to_call(street)
-    required = pot_state.required_equity_pct(street)
+    required_raw = pot_state.required_equity_pct(street)
+    required = (required_raw + call_buffer) if required_raw is not None else None
 
     # No bet to call — we can check or bet
     if to_call <= 0:
         if equity_pct is None:
             return "check", "Equity unknown. Check or bet small."
-        if equity_pct >= RAISE_WHEN_NO_BET_EQUITY:
+        if equity_pct >= raise_no_bet:
             return (
                 "raise",
                 f"Strong hand ({equity_pct:.1f}% equity). Bet ½–⅔ pot for value.",
@@ -139,14 +168,14 @@ def recommendation(
             f"Weak hand ({equity_pct:.1f}%). Check.",
         )
 
-    # Facing a bet — use pot odds
+    # Facing a bet — use pot odds (with call_buffer)
     if required is None:
         return "no_bet", "Could not compute required equity."
 
     if equity_pct is None:
         return (
             "fold",
-            f"Equity unknown. You need {required:.1f}% to call (pot odds). Fold unless you know you're ahead.",
+            f"Equity unknown. You need ~{required:.1f}% to call (pot odds). Fold unless you know you're ahead.",
         )
 
     if equity_pct < required:
@@ -154,7 +183,7 @@ def recommendation(
             "fold",
             f"Equity {equity_pct:.1f}% < required {required:.1f}% (pot odds) → fold.",
         )
-    if equity_pct >= RAISE_WHEN_FACING_BET_EQUITY:
+    if equity_pct >= raise_facing_bet:
         return (
             "raise",
             f"Equity {equity_pct:.1f}% well above required {required:.1f}%. Raise for value.",

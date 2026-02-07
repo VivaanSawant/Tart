@@ -77,3 +77,14 @@ export async function tableReset(numPlayers = 6) {
     body: JSON.stringify({ num_players: numPlayers }),
   })
 }
+
+export async function getPlayStyle() {
+  return jsonFetch('/api/play_style')
+}
+
+export async function setPlayStyle(aggression) {
+  return jsonFetch('/api/play_style', {
+    method: 'POST',
+    body: JSON.stringify({ aggression }),
+  })
+}
