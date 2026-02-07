@@ -100,21 +100,22 @@ RAISE_WHEN_FACING_BET_EQUITY = 60.0
 # Aggression: lower thresholds = more calls/raises (aggressive), higher = fewer (conservative)
 # call_buffer: added to break-even required equity. Aggressive: call with less. Conservative: call only with more.
 # raise_no_bet / raise_facing_bet: equity % to recommend bet/raise.
+# (+5% aggression = thresholds shifted down by 5)
 AGGRESSION_THRESHOLDS = {
     "aggressive": {
-        "call_buffer": -12.0,
-        "raise_when_no_bet": 30.0,
-        "raise_when_facing_bet": 34.0,
+        "call_buffer": -22.0,
+        "raise_when_no_bet": 20.0,
+        "raise_when_facing_bet": 24.0,
     },
     "neutral": {
-        "call_buffer": 0.0,
-        "raise_when_no_bet": 40.0,
-        "raise_when_facing_bet": 44.0,
+        "call_buffer": -15.0,
+        "raise_when_no_bet": 25.0,
+        "raise_when_facing_bet": 29.0,
     },
     "conservative": {
-        "call_buffer": 3.0,
-        "raise_when_no_bet": 50.0,
-        "raise_when_facing_bet": 54.0,
+        "call_buffer": -5.0,
+        "raise_when_no_bet": 42.0,
+        "raise_when_facing_bet": 46.0,
     },
 }
 
