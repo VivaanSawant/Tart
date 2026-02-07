@@ -3,11 +3,10 @@ import './App.css'
 
 import {
   clearHand,
-  confirmBetting,
   fetchState,
   setPlayStyle,
+  tableReset,
 } from './api/backend'
-import BettingModal from './components/BettingModal'
 import CameraPermission from './components/CameraPermission'
 import CameraSelector from './components/CameraSelector'
 import EquityPanel from './components/EquityPanel'
@@ -80,9 +79,8 @@ function App() {
     }
   }
 
-  const handleBettingSubmit = async (street, amount, isCall) => {
-    const action = isCall ? (amount > 0 ? 'call' : 'check') : 'fold'
-    const res = await confirmBetting(action, amount)
+  const handleNewTable = async () => {
+    const res = await tableReset()
     if (res && res.ok) {
       handleFetchState()
     }
@@ -116,10 +114,23 @@ function App() {
         </button>
         <button
           type="button"
+          className={`nav-tab ${activeTab === 'info' ? 'active' : ''}`}
+          onClick={() => setActiveTab('info')}
+        >
+          Info
+        </button>
+        <button
+          type="button"
           className={`nav-tab ${activeTab === 'movelog' ? 'active' : ''}`}
           onClick={() => setActiveTab('movelog')}
         >
           Move Log
+        </button>
+        <button type="button" className="btn btn-clear nav-right-btn" style={{ marginLeft: 'auto' }} onClick={handleClear}>
+          Clear hand
+        </button>
+        <button type="button" className="btn btn-reset nav-right-btn" onClick={handleNewTable}>
+          New table
         </button>
       </nav>
 
@@ -128,99 +139,84 @@ function App() {
         <VideoFeed src="/video_feed" />
       </div>
 
-      {activeTab === 'movelog' ? (
-        <div className="move-log-tab">
+      {activeTab === 'info' ? (
+        <div className="info-tab">
+          <div className="info-tab-content">
+            <section className="play-style-section panel">
+              <h2>Play style</h2>
+              <p className="play-style-hint">Choose before each game. Affects call/raise equity thresholds.</p>
+              <div className="play-style-buttons">
+                <button
+                  type="button"
+                  className={`btn play-style-btn ${gameState.playStyle === 'conservative' ? 'active' : ''}`}
+                  onClick={() => handlePlayStyleChange('conservative')}
+                >
+                  Conservative
+                </button>
+                <button
+                  type="button"
+                  className={`btn play-style-btn ${gameState.playStyle === 'neutral' ? 'active' : ''}`}
+                  onClick={() => handlePlayStyleChange('neutral')}
+                >
+                  Neutral
+                </button>
+                <button
+                  type="button"
+                  className={`btn play-style-btn ${gameState.playStyle === 'aggressive' ? 'active' : ''}`}
+                  onClick={() => handlePlayStyleChange('aggressive')}
+                >
+                  Aggressive
+                </button>
+              </div>
+            </section>
+
+            <div className="panel">
+              <EquityPanel
+                equityPreflop={gameState.equityPreflop}
+                equityFlop={gameState.equityFlop}
+                equityTurn={gameState.equityTurn}
+                equityRiver={gameState.equityRiver}
+                equityError={gameState.equityError}
+                betRecommendations={gameState.betRecommendations}
+                potInfo={gameState.potInfo}
+                holeCount={gameState.holeCards.length}
+                flopCount={gameState.flopCards.length}
+                playersInHand={gameState.table?.players_in_hand?.length ?? 6}
+              />
+            </div>
+
+            <div className="panel">
+              <PotOddsPanel
+                potInfo={gameState.potInfo}
+                smallBlind={SMALL_BLIND}
+                bigBlind={BIG_BLIND}
+                buyIn={BUY_IN}
+              />
+            </div>
+          </div>
+        </div>
+      ) : activeTab === 'movelog' ? (
+        <div className="info-tab">
           <MoveLog moves={moveLog} />
         </div>
       ) : (
-      <>
-      <div className="table-hero">
-        <TableSimulatorView
-          holeCount={gameState.holeCards.length}
-          flopCards={gameState.flopCards}
-          turnCard={gameState.turnCard}
-          riverCard={gameState.riverCard}
-          potInfo={gameState.potInfo}
-          equityPreflop={gameState.equityPreflop}
-          equityFlop={gameState.equityFlop}
-          equityTurn={gameState.equityTurn}
-          equityRiver={gameState.equityRiver}
-          onHeroMove={handleHeroMove}
-        />
-      </div>
-
-      <div className="below-fold">
-        <div className="below-fold-content">
-          <section className="play-style-section panel">
-            <h2>Play style</h2>
-            <p className="play-style-hint">Choose before each game. Affects call/raise equity thresholds.</p>
-            <div className="play-style-buttons">
-              <button
-                type="button"
-                className={`btn play-style-btn ${gameState.playStyle === 'conservative' ? 'active' : ''}`}
-                onClick={() => handlePlayStyleChange('conservative')}
-              >
-                Conservative
-              </button>
-              <button
-                type="button"
-                className={`btn play-style-btn ${gameState.playStyle === 'neutral' ? 'active' : ''}`}
-                onClick={() => handlePlayStyleChange('neutral')}
-              >
-                Neutral
-              </button>
-              <button
-                type="button"
-                className={`btn play-style-btn ${gameState.playStyle === 'aggressive' ? 'active' : ''}`}
-                onClick={() => handlePlayStyleChange('aggressive')}
-              >
-                Aggressive
-              </button>
-            </div>
-          </section>
-
-          <div className="panel">
-            <EquityPanel
-              equityPreflop={gameState.equityPreflop}
-              equityFlop={gameState.equityFlop}
-              equityTurn={gameState.equityTurn}
-              equityRiver={gameState.equityRiver}
-              equityError={gameState.equityError}
-              betRecommendations={gameState.betRecommendations}
-              potInfo={gameState.potInfo}
-              holeCount={gameState.holeCards.length}
-              flopCount={gameState.flopCards.length}
-              playersInHand={gameState.table?.players_in_hand?.length ?? 6}
-            />
-          </div>
-
-          <div className="panel">
-            <PotOddsPanel
-              potInfo={gameState.potInfo}
-              smallBlind={SMALL_BLIND}
-              bigBlind={BIG_BLIND}
-              buyIn={BUY_IN}
-            />
-          </div>
-
-          <button type="button" className="btn btn-clear" onClick={handleClear}>
-            Clear hand
-          </button>
+        <div className="table-hero">
+          <TableSimulatorView
+            holeCards={gameState.holeCards}
+            holeCount={gameState.holeCards.length}
+            flopCards={gameState.flopCards}
+            turnCard={gameState.turnCard}
+            riverCard={gameState.riverCard}
+            potInfo={gameState.potInfo}
+            equityPreflop={gameState.equityPreflop}
+            equityFlop={gameState.equityFlop}
+            equityTurn={gameState.equityTurn}
+            equityRiver={gameState.equityRiver}
+            onHeroMove={handleHeroMove}
+          />
         </div>
-      </div>
-      </>
       )}
     </div>
-
-    <BettingModal
-      open={!!gameState.pendingBettingStreet}
-      street={gameState.pendingBettingStreet}
-      costToCall={gameState.potInfo?.to_call ?? 0}
-      recommendation={
-        gameState.betRecommendations?.[gameState.pendingBettingStreet] ?? null
-      }
-      onSubmit={handleBettingSubmit}
-    />
     </CameraPermission>
   )
 }
