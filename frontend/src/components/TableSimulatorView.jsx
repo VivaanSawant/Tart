@@ -315,9 +315,18 @@ export default function TableSimulatorView({
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       streamRef.current = stream; setListening(true); setVoiceStatus('Listening…')
-      const startChunk = () => {
+
+      // Deduplication: prevent the same command from executing twice when
+      // overlapping chunks both capture the same spoken command.
+      const lastCmd = { key: '', time: 0 }
+      const DEDUP_MS = 4000 // ignore duplicate command within 4 seconds
+      const CHUNK_MS = 5000 // each chunk records for 5 seconds
+      const STAGGER_MS = 2500 // lane B starts 2.5s after lane A
+
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm'
+
+      const startChunk = (lane) => {
         if (stoppedRef.current) return
-        const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm'
         const mr = new MediaRecorder(stream, { mimeType })
         const chunks = []
         mr.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data) }
@@ -332,16 +341,34 @@ export default function TableSimulatorView({
               setTranscript(prev => prev ? prev + ' ' + result.text : result.text)
               setVoiceStatus(`Heard: "${result.text}"`)
               const cmd = parseVoiceCommand(result.text)
-              if (cmd) { setVoiceStatus(`Executing: ${cmd.action}${cmd.amount != null ? ' ' + cmd.amount : ''}`); await executeVoiceCommand(cmd) }
-              else setVoiceStatus(`Heard: "${result.text}" (no command detected — say call/fold/raise/check)`)
+              if (cmd) {
+                // Deduplicate: skip if the same command was just executed
+                const cmdKey = `${cmd.action}_${cmd.amount ?? ''}`
+                const now = Date.now()
+                if (cmdKey === lastCmd.key && (now - lastCmd.time) < DEDUP_MS) {
+                  // Duplicate from overlapping chunk — ignore
+                  setVoiceStatus(`Heard: "${result.text}" (already executed)`)
+                } else {
+                  lastCmd.key = cmdKey; lastCmd.time = now
+                  setVoiceStatus(`Executing: ${cmd.action}${cmd.amount != null ? ' ' + cmd.amount : ''}`)
+                  await executeVoiceCommand(cmd)
+                }
+              } else {
+                setVoiceStatus(`Heard: "${result.text}" (no command detected — say call/fold/raise/check)`)
+              }
             } else if (result && !result.ok) { setVoiceError(result.error || 'Transcription failed'); setVoiceStatus('Error — see below') }
             else setVoiceStatus('Listening… (no speech detected)')
           } catch (err) { if (!stoppedRef.current) { setVoiceError(err.message); setVoiceStatus('Error — see below') } }
         }
         mediaRecorderRef.current = mr; mr.start()
-        setTimeout(() => { if (mr.state === 'recording') mr.stop(); if (!stoppedRef.current) startChunk() }, 5000)
+        setTimeout(() => { if (mr.state === 'recording') mr.stop(); if (!stoppedRef.current) startChunk(lane) }, CHUNK_MS)
       }
-      startChunk()
+
+      // Two overlapping recording lanes staggered by half the chunk duration.
+      // This guarantees any command spoken at any moment is fully captured
+      // by at least one chunk (command must be < STAGGER_MS ≈ 2.5s to be safe).
+      startChunk('A')
+      setTimeout(() => { if (!stoppedRef.current) startChunk('B') }, STAGGER_MS)
     } catch (err) { setVoiceError('Mic access denied: ' + err.message); setListening(false) }
   }, [executeVoiceCommand])
 
