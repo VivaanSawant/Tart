@@ -158,6 +158,17 @@ export async function setBotAggression(seat, aggression) {
   })
 }
 
+// Coach chatbot
+export async function sendCoachMessage(messages, profile, moves) {
+  const res = await fetch('/api/coach/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messages, profile, moves }),
+  })
+  if (!res.ok) return { ok: false, error: `HTTP ${res.status}` }
+  return res.json()
+}
+
 // Dedalus audio transcription
 export async function transcribeChunk(blob) {
   const fd = new FormData()

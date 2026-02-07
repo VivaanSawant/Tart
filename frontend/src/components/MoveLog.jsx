@@ -668,19 +668,25 @@ export default function MoveLog({ moves = [] }) {
   )
 }
 
-/** Build a summary profile from move log for the bots tab (aggression, bluff conditions, etc.) */
+/** Build a summary profile from move log for the bots tab & coach chatbot */
 export function getPlayerProfile(moves) {
   if (!moves?.length) return null
   const stats = computeStats(moves)
   return {
     aggression: stats.aggression,
     adherence: stats.adherence,
+    avgEquity: stats.avgEquity,
     byAction: stats.byAction,
+    byStreet: stats.byStreet,
+    streetCorrect: stats.streetCorrect,
     bluffCount: stats.bluffCount,
     bluffRate: stats.bluffRate,
     bluffByStreet: stats.bluffByStreet,
     avgEquityWhenBluffing: stats.avgEquityWhenBluffing,
     bluffConditionPercent: Math.round(BLUFF_OVER_RAISE_PERCENT * 100),
     totalMoves: stats.total,
+    riverPct: stats.riverPct,
+    foldGap: stats.foldGap,
+    avgRaiseDiff: stats.avgRaiseDiff,
   }
 }
