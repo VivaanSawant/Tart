@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import './App.css'
 
 import {
@@ -12,6 +12,7 @@ import CameraPermission from './components/CameraPermission'
 import CameraSelector from './components/CameraSelector'
 import EquityPanel from './components/EquityPanel'
 import LandingPage from './components/LandingPage'
+import MoveLog from './components/MoveLog'
 import PotOddsPanel from './components/PotOddsPanel'
 import TableSimulatorView from './components/TableSimulatorView'
 import VideoFeed from './components/VideoFeed'
@@ -23,6 +24,8 @@ const BUY_IN = 10
 
 function App() {
   const [showLanding, setShowLanding] = useState(true)
+  const [activeTab, setActiveTab] = useState('game')
+  const [moveLog, setMoveLog] = useState([])
   const [gameState, setGameState] = useState({
     holeCards: [],
     availableCards: [],
@@ -92,6 +95,10 @@ function App() {
     }
   }
 
+  const handleHeroMove = useCallback((move) => {
+    setMoveLog((prev) => [...prev, { ...move, timestamp: Date.now() }])
+  }, [])
+
   if (showLanding) {
     return <LandingPage onEnter={() => setShowLanding(false)} />
   }
@@ -99,11 +106,34 @@ function App() {
   return (
     <CameraPermission>
     <div className="app">
+      <nav className="app-nav">
+        <button
+          type="button"
+          className={`nav-tab ${activeTab === 'game' ? 'active' : ''}`}
+          onClick={() => setActiveTab('game')}
+        >
+          Game
+        </button>
+        <button
+          type="button"
+          className={`nav-tab ${activeTab === 'movelog' ? 'active' : ''}`}
+          onClick={() => setActiveTab('movelog')}
+        >
+          Move Log
+        </button>
+      </nav>
+
       <div className="video-pip">
         <CameraSelector />
         <VideoFeed src="/video_feed" />
       </div>
 
+      {activeTab === 'movelog' ? (
+        <div className="move-log-tab">
+          <MoveLog moves={moveLog} />
+        </div>
+      ) : (
+      <>
       <div className="table-hero">
         <TableSimulatorView
           holeCount={gameState.holeCards.length}
@@ -115,6 +145,7 @@ function App() {
           equityFlop={gameState.equityFlop}
           equityTurn={gameState.equityTurn}
           equityRiver={gameState.equityRiver}
+          onHeroMove={handleHeroMove}
         />
       </div>
 
@@ -177,6 +208,8 @@ function App() {
           </button>
         </div>
       </div>
+      </>
+      )}
     </div>
 
     <BettingModal

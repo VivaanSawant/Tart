@@ -92,6 +92,7 @@ export default function TableSimulatorView({
   equityFlop = null,
   equityTurn = null,
   equityRiver = null,
+  onHeroMove = null,
 }) {
   const [state, setState] = useState(null)
   const [raiseAmount, setRaiseAmount] = useState(0.4)
@@ -167,15 +168,34 @@ export default function TableSimulatorView({
   const handleAction = useCallback(
     async (action, amount = 0, isHeroActing = false) => {
       if (!state || state.current_actor == null) return
+      const equityForStreet =
+        street === 'preflop' ? equityPreflop
+        : street === 'flop' ? equityFlop
+        : street === 'turn' ? equityTurn
+        : street === 'river' ? equityRiver
+        : null
       const res = await tableAction(state.current_actor, action, amount, isHeroActing)
       if (res && res.ok) {
         setState(res.state)
         setError(null)
+        if (isHeroActing && onHeroMove) {
+          onHeroMove({
+            handNumber: state.hand_number,
+            street,
+            action,
+            amount,
+            equity: equityForStreet,
+            optimalMove: potInfo?.recommendation ?? 'no_bet',
+            suggestedRaise: potInfo?.suggested_raise,
+            pot: state.pot,
+            toCall: potInfo?.to_call,
+          })
+        }
       } else {
         setError(res?.error || 'Invalid action')
       }
     },
-    [state]
+    [state, street, equityPreflop, equityFlop, equityTurn, equityRiver, potInfo?.recommendation, onHeroMove]
   )
 
   const handleHeroAction = useCallback(
