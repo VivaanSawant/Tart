@@ -302,6 +302,7 @@ shared_state = {
     "betting_confirmed_up_to": None,  # None | "hole" | "preflop" | "flop" | "turn" | "river"
     "camera_index": 0,
     "camera_error": None,
+    "play_style": "neutral",  # "aggressive" | "neutral" | "conservative" — equity thresholds
 }
 stop_event = threading.Event()
 
@@ -487,10 +488,17 @@ def api_state():
         equity_river,
         equity_preflop=analysis.get("equity_preflop"),
     )
+    with shared_state["lock"]:
+        play_style = shared_state.get("play_style", "neutral")
     verdict, reason = pot_calc.recommendation(
         equity_for_street, current_street,
         _pot_state_from_table(table_state, to_call),
+        aggression=play_style,
     )
+    suggested_raise = None
+    if verdict == "raise":
+        half_pot = max(0.2, 0.5 * pot_total)
+        suggested_raise = round(half_pot, 2)
 
     return jsonify({
         "hole_cards": hole,
@@ -499,6 +507,7 @@ def api_state():
         "river_card": river,
         "available_cards": available,
         "pending_betting_street": pending_betting_street,
+        "play_style": play_style,
         "equity_preflop": analysis.get("equity_preflop"),
         "equity_flop": equity_flop,
         "equity_turn": equity_turn,
@@ -512,6 +521,7 @@ def api_state():
             "required_equity_pct": required_equity,
             "recommendation": verdict,
             "recommendation_reason": reason,
+            "suggested_raise": suggested_raise,
         },
         "table": _table_state_to_dict(table_state),
     })
@@ -678,6 +688,26 @@ def api_clear():
     clear_hand_state_file()
     equitypredict.clear_cache()
     return jsonify({"ok": True})
+
+
+@app.route("/api/play_style", methods=["GET"])
+def api_play_style_get():
+    """Return current play style (aggression level) for equity thresholds."""
+    with shared_state["lock"]:
+        play_style = shared_state.get("play_style", "neutral")
+    return jsonify({"play_style": play_style})
+
+
+@app.route("/api/play_style", methods=["POST"])
+def api_play_style_post():
+    """Set play style before/during game. Body: { "aggression": "conservative"|"neutral"|"aggressive" }."""
+    data = request.get_json(force=True, silent=True) or {}
+    aggression = (data.get("aggression") or data.get("play_style") or "").lower().strip()
+    if aggression not in ("conservative", "neutral", "aggressive"):
+        return jsonify({"ok": False, "error": "aggression must be conservative, neutral, or aggressive"}), 400
+    with shared_state["lock"]:
+        shared_state["play_style"] = aggression
+    return jsonify({"ok": True, "play_style": aggression})
 
 
 def generate_frames():

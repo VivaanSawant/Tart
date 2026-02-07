@@ -24,6 +24,7 @@ export default function TableSimulatorView({
   flopCount = 0,
   hasTurn = false,
   hasRiver = false,
+  potInfo = null,
 }) {
   const [state, setState] = useState(null)
   const [raiseAmount, setRaiseAmount] = useState(0.4)
@@ -60,6 +61,26 @@ export default function TableSimulatorView({
     const interval = setInterval(loadState, 500)
     return () => clearInterval(interval)
   }, [])
+
+  // Whenever a raise is recommended, auto-fill the raise amount input with suggested_raise
+  useEffect(() => {
+    if (potInfo?.recommendation !== 'raise') return
+    const suggested = potInfo?.suggested_raise
+    if (suggested != null) {
+      const val = Number(suggested)
+      if (!Number.isNaN(val) && val > 0) setRaiseAmount(val)
+      return
+    }
+    // Fallback: half pot or min raise above cost to call
+    const potBefore = potInfo?.pot_before_call
+    const toCall = potInfo?.to_call ?? 0
+    if (potBefore != null && Number(potBefore) > 0) {
+      const halfPot = 0.5 * Number(potBefore)
+      setRaiseAmount(Math.max(0.2, halfPot))
+    } else if (toCall > 0) {
+      setRaiseAmount(Math.max(0.4, toCall + 0.2))
+    }
+  }, [potInfo?.recommendation, potInfo?.suggested_raise, potInfo?.pot_before_call, potInfo?.to_call])
 
   const handleAction = useCallback(
     async (action, amount = 0, isHeroActing = false) => {

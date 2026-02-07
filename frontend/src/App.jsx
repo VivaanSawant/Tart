@@ -6,6 +6,7 @@ import {
   fetchState,
   lockHole,
   lockHoleAll,
+  setPlayStyle,
 } from './api/backend'
 import CameraPermission from './components/CameraPermission'
 import CameraSelector from './components/CameraSelector'
@@ -36,6 +37,7 @@ function App() {
     pendingBettingStreet: null,
     potInfo: null,
     table: null,
+    playStyle: 'neutral',
   })
 
   const handleFetchState = async () => {
@@ -56,6 +58,7 @@ function App() {
       pendingBettingStreet: data.pending_betting_street || null,
       potInfo: data.pot || null,
       table: data.table || null,
+      playStyle: data.play_style || 'neutral',
     })
   }
 
@@ -87,7 +90,12 @@ function App() {
     }
   }
 
-
+  const handlePlayStyleChange = async (aggression) => {
+    const res = await setPlayStyle(aggression)
+    if (res && res.ok) {
+      handleFetchState()
+    }
+  }
 
   const canLockHole = gameState.holeCards.length < 2
   const holeHint = canLockHole
@@ -132,6 +140,34 @@ function App() {
         </div>
 
         <aside className="sidebar panel">
+          <section className="play-style-section">
+            <h2>Play style</h2>
+            <p className="play-style-hint">Choose before each game. Affects call/raise equity thresholds.</p>
+            <div className="play-style-buttons">
+              <button
+                type="button"
+                className={`btn play-style-btn ${gameState.playStyle === 'conservative' ? 'active' : ''}`}
+                onClick={() => handlePlayStyleChange('conservative')}
+              >
+                Conservative
+              </button>
+              <button
+                type="button"
+                className={`btn play-style-btn ${gameState.playStyle === 'neutral' ? 'active' : ''}`}
+                onClick={() => handlePlayStyleChange('neutral')}
+              >
+                Neutral
+              </button>
+              <button
+                type="button"
+                className={`btn play-style-btn ${gameState.playStyle === 'aggressive' ? 'active' : ''}`}
+                onClick={() => handlePlayStyleChange('aggressive')}
+              >
+                Aggressive
+              </button>
+            </div>
+          </section>
+
           <EquityPanel
             equityPreflop={gameState.equityPreflop}
             equityFlop={gameState.equityFlop}
