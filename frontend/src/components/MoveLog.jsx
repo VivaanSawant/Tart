@@ -1,12 +1,18 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
 import Chip from '@mui/material/Chip'
 import Collapse from '@mui/material/Collapse'
+import Dialog from '@mui/material/Dialog'
+import DialogContent from '@mui/material/DialogContent'
+import DialogTitle from '@mui/material/DialogTitle'
 import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
+import CircularProgress from '@mui/material/CircularProgress'
+import { fetchDecisionTransferReport } from '../api/backend'
 import './MoveLog.css'
 
 // If actual raise exceeds suggested raise by this much (e.g. 0.25 = 25%), flag as BLUFF
@@ -138,10 +144,142 @@ function EquityCell({ value }) {
   )
 }
 
+function DecisionTransferReportView({ report }) {
+  const tendencies = report?.decision_tendencies_summary ?? []
+  const habits = report?.habit_insights ?? []
+  const domains = report?.cross_domain_transfer ?? []
+  const stress = report?.cognitive_load_stress_profile
+  const summary = report?.summary_card
+
+  return (
+    <Stack spacing={3} sx={{ py: 1, pb: 3 }}>
+      {summary && (
+        <Paper variant="outlined" sx={{ p: 2, bgcolor: 'background.default' }}>
+          <Typography variant="h6" gutterBottom>Summary</Typography>
+          <Typography variant="body2" sx={{ mb: 1.5 }}>{summary.confidence_levels}</Typography>
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 2 }}>
+            <Box>
+              <Typography variant="subtitle2" color="primary">Top traits</Typography>
+              {(summary.top_3_dominant_traits || []).map(([name, desc], i) => (
+                <Typography key={i} variant="body2" sx={{ mt: 0.5 }}><strong>{name}</strong>: {desc}</Typography>
+              ))}
+            </Box>
+            <Box>
+              <Typography variant="subtitle2" color="error">Risk patterns</Typography>
+              {(summary.top_3_decision_risk_patterns || []).map(([name, desc], i) => (
+                <Typography key={i} variant="body2" sx={{ mt: 0.5 }}><strong>{name}</strong>: {desc}</Typography>
+              ))}
+            </Box>
+            <Box>
+              <Typography variant="subtitle2" color="success.main">Transferable habits</Typography>
+              {(summary.top_3_transferable_habits || []).map(([name, desc], i) => (
+                <Typography key={i} variant="body2" sx={{ mt: 0.5 }}><strong>{name}</strong>: {desc}</Typography>
+              ))}
+            </Box>
+          </Box>
+        </Paper>
+      )}
+
+      {tendencies.length > 0 && (
+        <Box>
+          <Typography variant="h6" gutterBottom>Decision tendencies</Typography>
+          {tendencies.map((t, i) => (
+            <Paper key={i} variant="outlined" sx={{ p: 1.5, mb: 1.5 }}>
+              <Typography variant="subtitle1">{t.trait_name}</Typography>
+              <Typography variant="body2" sx={{ mt: 0.5 }}>{t.cognitive_interpretation}</Typography>
+              {t.typical_decision_manifestations?.length > 0 && (
+                <Typography variant="body2" sx={{ mt: 1 }} component="span"><strong>Typical:</strong> {t.typical_decision_manifestations.join(' ')}</Typography>
+              )}
+              {t.situations_advantageous?.length > 0 && (
+                <Typography variant="body2" sx={{ display: 'block', mt: 0.5 }}><strong>Advantageous:</strong> {t.situations_advantageous.join(' ')}</Typography>
+              )}
+              {t.situations_harmful?.length > 0 && (
+                <Typography variant="body2" sx={{ display: 'block', mt: 0.5 }}><strong>Harmful:</strong> {t.situations_harmful.join(' ')}</Typography>
+              )}
+              {t.confidence_note && <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>{t.confidence_note}</Typography>}
+            </Paper>
+          ))}
+        </Box>
+      )}
+
+      {habits.length > 0 && (
+        <Box>
+          <Typography variant="h6" gutterBottom>Habit insights</Typography>
+          {habits.map((h, i) => (
+            <Paper key={i} variant="outlined" sx={{ p: 1.5, mb: 1.5 }}>
+              <Typography variant="subtitle1">{h.trait_name}</Typography>
+              {h.protective_habits?.length > 0 && (
+                <Typography variant="body2" sx={{ mt: 0.5 }}><strong>Protective:</strong> {h.protective_habits.join(' ')}</Typography>
+              )}
+              {h.corrective_habits?.length > 0 && (
+                <Typography variant="body2" sx={{ display: 'block', mt: 0.5 }}><strong>Corrective:</strong> {h.corrective_habits.join(' ')}</Typography>
+              )}
+              {h.early_warning_signals?.length > 0 && (
+                <Typography variant="body2" sx={{ display: 'block', mt: 0.5 }}><strong>Early warning:</strong> {h.early_warning_signals.join(' ')}</Typography>
+              )}
+            </Paper>
+          ))}
+        </Box>
+      )}
+
+      {domains.length > 0 && (
+        <Box>
+          <Typography variant="h6" gutterBottom>Cross-domain transfer</Typography>
+          {domains.map((d, i) => (
+            <Paper key={i} variant="outlined" sx={{ p: 1.5, mb: 1.5 }}>
+              <Typography variant="subtitle1">{d.domain}</Typography>
+              <Typography variant="body2" sx={{ mt: 0.5 }}><strong>Strength:</strong> {d.likely_strength}</Typography>
+              <Typography variant="body2" sx={{ display: 'block', mt: 0.5 }}><strong>Failure mode:</strong> {d.likely_failure_mode}</Typography>
+              <Typography variant="body2" sx={{ display: 'block', mt: 0.5 }}><strong>Adjustment:</strong> {d.mental_adjustment}</Typography>
+            </Paper>
+          ))}
+        </Box>
+      )}
+
+      {stress && (
+        <Paper variant="outlined" sx={{ p: 2 }}>
+          <Typography variant="h6" gutterBottom>Cognitive load &amp; stress</Typography>
+          <Typography variant="body2">{stress.decision_quality_under_stress}</Typography>
+          <Typography variant="body2" sx={{ display: 'block', mt: 1 }}>{stress.time_pressure_effects}</Typography>
+          <Typography variant="body2" sx={{ display: 'block', mt: 1 }}>{stress.simplification_vs_exploration}</Typography>
+          {(stress.uncertainty_notes || []).map((n, i) => (
+            <Typography key={i} variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>{n}</Typography>
+          ))}
+        </Paper>
+      )}
+    </Stack>
+  )
+}
+
 export default function MoveLog({ moves = [] }) {
   const [hoveredMove, setHoveredMove] = useState(null)
   const [expandedMove, setExpandedMove] = useState(null)
+  const [reportOpen, setReportOpen] = useState(false)
+  const [reportData, setReportData] = useState(null)
+  const [reportLoading, setReportLoading] = useState(false)
+  const [reportError, setReportError] = useState(null)
   const stats = useMemo(() => computeStats(moves), [moves])
+
+  const handleOpenDecisionReport = useCallback(async () => {
+    setReportOpen(true)
+    setReportData(null)
+    setReportError(null)
+    setReportLoading(true)
+    const profile = {
+      aggression: stats?.aggression,
+      adherence: stats?.adherence,
+      byAction: stats?.byAction,
+      bluffCount: stats?.bluffCount,
+      bluffRate: stats?.bluffRate,
+      bluffByStreet: stats?.bluffByStreet,
+      avgEquityWhenBluffing: stats?.avgEquityWhenBluffing,
+      totalMoves: stats?.total,
+    }
+    const res = await fetchDecisionTransferReport(profile)
+    setReportLoading(false)
+    if (res.ok) setReportData(res.report)
+    else setReportError(res.error || 'Could not load report')
+  }, [stats])
 
   if (moves.length === 0) {
     return (
@@ -272,9 +410,35 @@ export default function MoveLog({ moves = [] }) {
                 )}
               </Stack>
             </Box>
+
+            <Button
+              variant="outlined"
+              size="medium"
+              onClick={handleOpenDecisionReport}
+              sx={{ mt: 2, alignSelf: 'flex-start' }}
+            >
+              View decision insights
+            </Button>
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={reportOpen} onClose={() => setReportOpen(false)} maxWidth="md" fullWidth scroll="paper">
+        <DialogTitle>Decision Transfer Report</DialogTitle>
+        <DialogContent>
+          {reportLoading && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress />
+            </Box>
+          )}
+          {reportError && (
+            <Typography color="error" sx={{ py: 2 }}>{reportError}</Typography>
+          )}
+          {!reportLoading && !reportError && reportData && (
+            <DecisionTransferReportView report={reportData} />
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Optimal vs Actual */}
       <Card sx={{ mb: 3 }}>

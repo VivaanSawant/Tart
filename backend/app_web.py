@@ -488,6 +488,53 @@ def health():
     return jsonify({"ok": True})
 
 
+@app.route("/api/decision_transfer_report", methods=["POST"])
+def api_decision_transfer_report():
+    """
+    Build a Decision Transfer report from the frontend player profile (Move Log).
+    Body: { "aggression", "adherence", "byAction", "bluffCount", "bluffRate",
+            "bluffByStreet", "avgEquityWhenBluffing", "totalMoves" } (all optional).
+    Returns the full DecisionTransferReport as JSON for display in the UI.
+    """
+    if REPO_ROOT not in sys.path:
+        sys.path.insert(0, REPO_ROOT)
+    try:
+        from insights.decision_transfer import PlayerCognitiveProfile, generate_report
+        from dataclasses import asdict
+    except ImportError as e:
+        return jsonify({"ok": False, "error": f"Decision transfer module unavailable: {e}"}), 500
+
+    data = request.get_json() or {}
+    aggression = data.get("aggression")
+    adherence = data.get("adherence")
+    bluff_rate = data.get("bluffRate")
+    total_moves = data.get("totalMoves") or 0
+
+    # Map frontend profile to PlayerCognitiveProfile (read-only contract)
+    profile = PlayerCognitiveProfile(
+        risk_tolerance_curve=None,
+        loss_aversion_coefficient=1.5 if (bluff_rate and bluff_rate < 20) else None,  # loose proxy
+        aggression_vs_passivity_index=float(aggression) if aggression is not None else 50,
+        tilt_susceptibility=min(1.0, (bluff_rate or 0) / 100.0 * 1.3) if bluff_rate is not None else 0.4,
+        time_pressure_sensitivity=0.4,
+        decision_consistency=(float(adherence or 0) / 100.0) if adherence is not None else 0.5,
+        trait_confidence_scores=None,
+    )
+    report = generate_report(profile)
+
+    def to_serializable(obj):
+        if hasattr(obj, "__dataclass_fields__"):
+            return {k: to_serializable(getattr(obj, k)) for k in obj.__dataclass_fields__}
+        if isinstance(obj, list):
+            return [to_serializable(x) for x in obj]
+        if isinstance(obj, tuple):
+            return [to_serializable(x) for x in obj]
+        return obj
+
+    report_dict = to_serializable(report)
+    return jsonify({"ok": True, "report": report_dict})
+
+
 @app.route("/api/cameras", methods=["GET"])
 def api_cameras_list():
     """List available camera devices (probes indices 0..MAX_CAMERA_PROBE-1)."""
