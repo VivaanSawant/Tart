@@ -1,0 +1,9 @@
+# Voice betting tracker: Whisper + pyannote
+# Install: pip install -r requirements-voice.txt
+faster-whisper>=1.0.0
+pyannote.audio>=3.0.0
+torch
+torchaudio
+
+# Hugging Face token required for pyannote (accept license at pyannote/speaker-diarization-3.1)
+# Set env: HUGGINGFACE_HUB_TOKEN=your_token

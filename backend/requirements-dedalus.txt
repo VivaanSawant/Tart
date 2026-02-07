@@ -1,0 +1,6 @@
+# Dedalus Labs API (import: dedalus_labs)
+# Install with the SAME Python that runs your app:
+#   python -m pip install dedalus-labs
+# If you get ModuleNotFoundError, check Dedalus Labs docs for the exact package name.
+# Set env: DEDALUS_API_KEY=your_key
+dedalus-labs

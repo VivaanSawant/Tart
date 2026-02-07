@@ -3,10 +3,11 @@ import './App.css'
 
 import {
   clearHand,
+  confirmBetting,
   fetchState,
   setPlayStyle,
 } from './api/backend'
-
+import BettingModal from './components/BettingModal'
 import CameraPermission from './components/CameraPermission'
 import CameraSelector from './components/CameraSelector'
 import EquityPanel from './components/EquityPanel'
@@ -71,6 +72,14 @@ function App() {
 
   const handleClear = async () => {
     const res = await clearHand()
+    if (res && res.ok) {
+      handleFetchState()
+    }
+  }
+
+  const handleBettingSubmit = async (street, amount, isCall) => {
+    const action = isCall ? (amount > 0 ? 'call' : 'check') : 'fold'
+    const res = await confirmBetting(action, amount)
     if (res && res.ok) {
       handleFetchState()
     }
@@ -169,6 +178,16 @@ function App() {
         </div>
       </div>
     </div>
+
+    <BettingModal
+      open={!!gameState.pendingBettingStreet}
+      street={gameState.pendingBettingStreet}
+      costToCall={gameState.potInfo?.to_call ?? 0}
+      recommendation={
+        gameState.betRecommendations?.[gameState.pendingBettingStreet] ?? null
+      }
+      onSubmit={handleBettingSubmit}
+    />
     </CameraPermission>
   )
 }
