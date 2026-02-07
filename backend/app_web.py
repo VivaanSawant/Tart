@@ -143,7 +143,16 @@ def run_webcam_worker(shared_state: dict, stop_event: threading.Event):
                     shared_state["last_unknown_time"] = now
                 elif (now - last_unknown_time) >= STABILITY_SECONDS:
                     confirmed = shared_state.get("betting_confirmed_up_to")
+                    # Auto-lock hole: 2 cards stable 2s when we have no hole cards yet
                     if (
+                        len(shared_state["locked_cards"]) < 2
+                        and len(unknown_set) == 2
+                    ):
+                        shared_state["locked_cards"] = sorted(unknown_set)
+                        shared_state["betting_confirmed_up_to"] = "hole"
+                        shared_state["last_unknown_set"] = None
+                        hand_updated = True
+                    elif (
                         len(shared_state["flop_cards"]) < 3
                         and len(unknown_set) == 3
                         and len(shared_state["locked_cards"]) == 2
@@ -270,9 +279,11 @@ def api_state():
         river_card=river,
         unknown_cards=available,
     )
-    equity_flop, equity_turn, equity_river = equitypredict.compute_equities_from_log(
-        card_logger.LOG_FILE
-    )
+    analysis = equitypredict.compute_full_analysis(card_logger.LOG_FILE)
+    equity_flop = analysis["equity_flop"]
+    equity_turn = analysis["equity_turn"]
+    equity_river = analysis["equity_river"]
+    bet_recommendations = analysis["bet_recommendations"]
     equity_ready = len(hole) == 2 and len(flop) == 3
     equity_error = None
     if equity_ready and equity_flop is None and equity_turn is None and equity_river is None:
@@ -313,7 +324,11 @@ def api_state():
         pot_state = shared_state["pot_state"]
         current_street = shared_state["current_street"]
     equity_for_street = pot_calc.get_equity_for_street(
-        current_street, equity_flop, equity_turn, equity_river
+        current_street,
+        equity_flop,
+        equity_turn,
+        equity_river,
+        equity_preflop=analysis.get("equity_preflop"),
     )
     to_call = pot_state.amount_to_call(current_street)
     required_equity = pot_state.required_equity_pct(current_street)
@@ -328,10 +343,12 @@ def api_state():
         "river_card": river,
         "available_cards": available,
         "pending_betting_street": pending_betting_street,
+        "equity_preflop": analysis.get("equity_preflop"),
         "equity_flop": equity_flop,
         "equity_turn": equity_turn,
         "equity_river": equity_river,
         "equity_error": equity_error,
+        "bet_recommendations": bet_recommendations,
         "pot": {
             "state": pot_state.to_dict(),
             "current_street": current_street,

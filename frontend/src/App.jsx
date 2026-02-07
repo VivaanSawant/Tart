@@ -15,10 +15,17 @@ import EquityPanel from './components/EquityPanel'
 import PotOddsPanel from './components/PotOddsPanel'
 import VideoFeed from './components/VideoFeed'
 
+const SMALL_BLIND = 0.1
+const BIG_BLIND = 0.2
+const BUY_IN = 10
+
 const EMPTY_POT = {
-  starting_pot: 1.5,
+  starting_pot: SMALL_BLIND + BIG_BLIND,
+  small_blind: SMALL_BLIND,
+  big_blind: BIG_BLIND,
+  buy_in: BUY_IN,
   current_street: 'flop',
-  preflop: { opponent: 0, hero: 0 },
+  preflop: { opponent: BIG_BLIND, hero: 0 },
   flop: { opponent: 0, hero: 0 },
   turn: { opponent: 0, hero: 0 },
   river: { opponent: 0, hero: 0 },
@@ -34,7 +41,9 @@ function App() {
     equityFlop: null,
     equityTurn: null,
     equityRiver: null,
+    equityPreflop: null,
     equityError: null,
+    betRecommendations: null,
     pendingBettingStreet: null,
     potInfo: null,
   })
@@ -66,18 +75,20 @@ function App() {
       flopCards: data.flop_cards || [],
       turnCard: data.turn_card || null,
       riverCard: data.river_card || null,
+      equityPreflop: data.equity_preflop,
       equityFlop: data.equity_flop,
       equityTurn: data.equity_turn,
       equityRiver: data.equity_river,
       equityError: data.equity_error,
+      betRecommendations: data.bet_recommendations || null,
       pendingBettingStreet: data.pending_betting_street || null,
       potInfo: data.pot || null,
     })
     if (data.pot && data.pot.state) {
       setPotInputs({
-        starting_pot: data.pot.state.starting_pot ?? 1.5,
+        starting_pot: data.pot.state.starting_pot ?? EMPTY_POT.starting_pot,
         current_street: data.pot.current_street || 'flop',
-        preflop: data.pot.state.preflop || { opponent: 0, hero: 0 },
+        preflop: data.pot.state.preflop || EMPTY_POT.preflop,
         flop: data.pot.state.flop || { opponent: 0, hero: 0 },
         turn: data.pot.state.turn || { opponent: 0, hero: 0 },
         river: data.pot.state.river || { opponent: 0, hero: 0 },
@@ -126,7 +137,9 @@ function App() {
     }
   }
 
-  const handleConfirmBetting = async (street, opponent, hero) => {
+  const handleConfirmBetting = async (street, costToCall, didCall) => {
+    const opponent = costToCall
+    const hero = didCall ? costToCall : 0
     const res = await confirmBetting(street, opponent, hero)
     if (res && res.ok) {
       setPotInputs((prev) => {
@@ -157,14 +170,12 @@ function App() {
     })
   }
 
-  const updateBet = (street, side, value) => {
+  const updateCostToCall = (street, value) => {
+    const cost = Number(value) || 0
     setPotInputs((prev) => {
       const next = {
         ...prev,
-        [street]: {
-          ...prev[street],
-          [side]: Number(value) || 0,
-        },
+        [street]: { opponent: cost, hero: 0 },
       }
       schedulePotPush(next)
       return next
@@ -178,31 +189,30 @@ function App() {
 
   return (
     <div className="app">
-      <h1>PokerPlaya – Card Lock</h1>
-      <p className="subtitle">
-        One-click lock hole, then flop and turn (and river) auto-detect after 2 seconds stable.
-      </p>
+      <header className="app-header">
+        <h1>PokerPlaya</h1>
+        <p className="subtitle">
+          Lock hole cards, then flop / turn / river auto-detect. Win probability + bet advice below.
+        </p>
+      </header>
 
       <BettingModal
         open={Boolean(gameState.pendingBettingStreet)}
         street={gameState.pendingBettingStreet}
-        defaultOpponent={
+        defaultCostToCall={
           gameState.pendingBettingStreet
-            ? potInputs[gameState.pendingBettingStreet]?.opponent
-            : 0
-        }
-        defaultHero={
-          gameState.pendingBettingStreet
-            ? potInputs[gameState.pendingBettingStreet]?.hero
-            : 0
+            ? (potInputs[gameState.pendingBettingStreet]?.opponent ?? 0) -
+              (potInputs[gameState.pendingBettingStreet]?.hero ?? 0) || BIG_BLIND
+            : BIG_BLIND
         }
         onSubmit={handleConfirmBetting}
       />
 
       <div className="layout">
-        <VideoFeed src="/video_feed" />
-
-        <div className="panel">
+        <div className="main-area">
+          <div className="video-wrap">
+            <VideoFeed src="/video_feed" />
+          </div>
           <CardsPanel
             holeCards={gameState.holeCards}
             availableCards={gameState.availableCards}
@@ -214,28 +224,36 @@ function App() {
             onLockHole={handleLockHole}
             onLockHoleAll={handleLockHoleAll}
           />
+        </div>
+
+        <aside className="sidebar panel">
+          <EquityPanel
+            equityPreflop={gameState.equityPreflop}
+            equityFlop={gameState.equityFlop}
+            equityTurn={gameState.equityTurn}
+            equityRiver={gameState.equityRiver}
+            equityError={gameState.equityError}
+            betRecommendations={gameState.betRecommendations}
+            potInfo={gameState.potInfo}
+            holeCount={gameState.holeCards.length}
+            flopCount={gameState.flopCards.length}
+          />
 
           <PotOddsPanel
             potInputs={potInputs}
             potInfo={gameState.potInfo}
             onStartingPotChange={updateStartingPot}
             onStreetChange={updateStreet}
-            onBetChange={updateBet}
+            onCostToCallChange={updateCostToCall}
+            smallBlind={SMALL_BLIND}
+            bigBlind={BIG_BLIND}
+            buyIn={BUY_IN}
           />
 
-          <EquityPanel
-            equityFlop={gameState.equityFlop}
-            equityTurn={gameState.equityTurn}
-            equityRiver={gameState.equityRiver}
-            equityError={gameState.equityError}
-            holeCount={gameState.holeCards.length}
-            flopCount={gameState.flopCards.length}
-          />
-
-          <button type="button" className="btn" id="clear-btn" onClick={handleClear}>
-            Clear hand (full restart)
+          <button type="button" className="btn btn-clear" onClick={handleClear}>
+            Clear hand
           </button>
-        </div>
+        </aside>
       </div>
     </div>
   )
