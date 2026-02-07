@@ -24,6 +24,13 @@ import bot_game
 import card_logger
 import equitypredict
 import pot_calc
+from probabilities import (
+    Card as ProbCard,
+    Hand as ProbHand,
+    HoleCards as ProbHoleCards,
+    calculate_hand_probabilities,
+    HAND_RANK_NAMES,
+)
 from table_simulator import (
     CHECK,
     CALL,
@@ -118,6 +125,112 @@ def enumerate_cameras(max_index: int = MAX_CAMERA_PROBE) -> list[dict]:
         else:
             cap.release()
     return cameras
+
+
+# ---------------------------------------------------------------------------
+# Hand-type probability helpers (uses probabilities.py)
+# ---------------------------------------------------------------------------
+
+_SUIT_NAME_TO_INT = {"h": 1, "d": 2, "s": 3, "c": 4}
+_RANK_NAME_TO_INT = {
+    "A": 1, "2": 2, "3": 3, "4": 4, "5": 5, "6": 6, "7": 7,
+    "8": 8, "9": 9, "10": 10, "J": 11, "Q": 12, "K": 13,
+}
+
+
+def _cv_card_to_prob_card(name: str):
+    """Convert a CV card name (e.g. 'As', '10h', 'Kd') to a probabilities.Card."""
+    name = (name or "").strip()
+    if not name or len(name) < 2:
+        return None
+    if name.upper().startswith("10") and len(name) >= 3:
+        rank_str, suit_char = "10", name[2].lower()
+    else:
+        rank_str, suit_char = name[0].upper(), name[1].lower()
+    rank = _RANK_NAME_TO_INT.get(rank_str)
+    suit = _SUIT_NAME_TO_INT.get(suit_char)
+    if rank is None or suit is None:
+        return None
+    return ProbCard(suit, rank)
+
+
+# Pre-flop probabilities are expensive (~30-60 s).  Cache + background thread.
+_preflop_prob_cache: dict = {}       # frozenset(hole_names) -> dict | None
+_preflop_prob_computing: set = set()
+
+
+def _compute_preflop_probs_bg(key, prob_hole_cards):
+    """Background thread: compute pre-flop hand-type probabilities and cache."""
+    try:
+        raw = calculate_hand_probabilities(ProbHand([]), ProbHoleCards(prob_hole_cards))
+        _preflop_prob_cache[key] = {
+            HAND_RANK_NAMES[k]: round(v * 100, 4) for k, v in raw.items()
+        }
+        print(f"[HAND PROBS] Pre-flop computation done for {key}")
+    except Exception as e:
+        print(f"[HAND PROBS] Pre-flop computation error: {e}")
+        _preflop_prob_cache[key] = None
+    finally:
+        _preflop_prob_computing.discard(key)
+
+
+def _clear_preflop_prob_cache():
+    """Clear pre-flop probability cache (call on hand clear / hand end)."""
+    _preflop_prob_cache.clear()
+    _preflop_prob_computing.clear()
+
+
+def _compute_hand_probabilities(hole, flop, turn, river):
+    """
+    Compute hand-type probabilities for the current board state.
+    Returns (probs_dict_pct, stage_str) or (None, stage_str_or_None).
+    probs_dict_pct maps hand name -> percentage (0-100).
+    """
+    prob_hole = [_cv_card_to_prob_card(c) for c in hole]
+    prob_hole = [c for c in prob_hole if c is not None]
+    if len(prob_hole) != 2:
+        return None, None
+
+    prob_flop = [_cv_card_to_prob_card(c) for c in flop]
+    prob_flop = [c for c in prob_flop if c is not None]
+    prob_turn = _cv_card_to_prob_card(turn) if turn else None
+    prob_river = _cv_card_to_prob_card(river) if river else None
+
+    board_cards = list(prob_flop)
+    if prob_turn:
+        board_cards.append(prob_turn)
+    if prob_river:
+        board_cards.append(prob_river)
+
+    n = len(board_cards)
+    if n == 5:
+        stage = "river"
+    elif n == 4:
+        stage = "turn"
+    elif n == 3:
+        stage = "flop"
+    else:
+        stage = "preflop"
+
+    if stage == "preflop":
+        key = frozenset(hole)
+        if key in _preflop_prob_cache:
+            return _preflop_prob_cache[key], stage
+        # Start background computation if not already running
+        if key not in _preflop_prob_computing:
+            _preflop_prob_computing.add(key)
+            print(f"[HAND PROBS] Starting pre-flop background computation for {key}")
+            threading.Thread(
+                target=_compute_preflop_probs_bg,
+                args=(key, list(prob_hole)),
+                daemon=True,
+            ).start()
+        return None, stage  # still computing
+
+    # Flop / Turn / River — fast enough to compute inline
+    raw = calculate_hand_probabilities(ProbHand(board_cards), ProbHoleCards(prob_hole))
+    probs = {HAND_RANK_NAMES[k]: round(v * 100, 4) for k, v in raw.items()}
+    return probs, stage
 
 
 def run_webcam_worker(shared_state: dict, stop_event: threading.Event):
@@ -322,6 +435,7 @@ def _on_hand_ended(_state) -> None:
         shared_state["betting_confirmed_up_to"] = None
     clear_hand_state_file()
     equitypredict.clear_cache()
+    _clear_preflop_prob_cache()
 
 
 def _get_table_sim() -> TableSimulator:
@@ -501,6 +615,13 @@ def api_state():
         half_pot = max(0.2, 0.5 * pot_total)
         suggested_raise = round(half_pot, 2)
 
+    # Hand-type probabilities (Royal Flush, Straight Flush, etc.)
+    hand_probs, hand_probs_stage = None, None
+    try:
+        hand_probs, hand_probs_stage = _compute_hand_probabilities(hole, flop, turn, river)
+    except Exception as e:
+        print(f"[HAND PROBS] Error: {e}")
+
     return jsonify({
         "hole_cards": hole,
         "flop_cards": flop,
@@ -515,6 +636,8 @@ def api_state():
         "equity_river": equity_river,
         "equity_error": equity_error,
         "bet_recommendations": bet_recommendations,
+        "hand_probabilities": hand_probs,
+        "hand_probabilities_stage": hand_probs_stage,
         "pot": {
             "current_street": current_street,
             "pot_before_call": pot_total,
@@ -723,6 +846,7 @@ def api_clear():
     )
     clear_hand_state_file()
     equitypredict.clear_cache()
+    _clear_preflop_prob_cache()
     return jsonify({"ok": True})
 
 

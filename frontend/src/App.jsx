@@ -22,6 +22,7 @@ import CameraSelector from './components/CameraSelector'
 import EquityPanel from './components/EquityPanel'
 import LandingPage from './components/LandingPage'
 import MoveLog from './components/MoveLog'
+import HandProbabilitiesPanel from './components/HandProbabilitiesPanel'
 import PotOddsPanel from './components/PotOddsPanel'
 import BotGameView from './components/BotGameView'
 import TableSimulatorView from './components/TableSimulatorView'
@@ -53,6 +54,8 @@ function App() {
     potInfo: null,
     table: null,
     playStyle: 'neutral',
+    handProbabilities: null,
+    handProbabilitiesStage: null,
   })
 
   const handleFetchState = async () => {
@@ -74,6 +77,8 @@ function App() {
       potInfo: data.pot || null,
       table: data.table || null,
       playStyle: data.play_style || 'neutral',
+      handProbabilities: data.hand_probabilities || null,
+      handProbabilitiesStage: data.hand_probabilities_stage || null,
     })
   }
 
@@ -198,7 +203,7 @@ function App() {
                 flex: 1,
                 minHeight: 0,
                 display: 'grid',
-                gridTemplateColumns: '1fr 1fr 1fr',
+                gridTemplateColumns: '1.3fr 1fr 1fr 1fr',
                 gap: 1.5,
                 pt: 1,
                 pb: 0.5,
@@ -241,6 +246,14 @@ function App() {
                   holeCount={gameState.holeCards.length}
                   flopCount={gameState.flopCards.length}
                   playersInHand={gameState.table?.players_in_hand?.length ?? 6}
+                />
+              </Paper>
+
+              <Paper sx={{ p: 1.5, overflowY: 'auto', minHeight: 0 }}>
+                <HandProbabilitiesPanel
+                  probabilities={gameState.handProbabilities}
+                  stage={gameState.handProbabilitiesStage}
+                  holeCount={gameState.holeCards.length}
                 />
               </Paper>
 
