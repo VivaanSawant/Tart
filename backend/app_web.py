@@ -30,6 +30,7 @@ REPO_ROOT = os.path.dirname(SCRIPT_DIR)
 MODEL_FILE = "yolov8m_synthetic.pt"
 MODEL_NAME = "YOLOv8m Synthetic"
 STABILITY_SECONDS = 2.0
+MAX_CAMERA_PROBE = 10  # how many indices to probe when listing cameras
 
 # Shared card state file for multiple developers (hole, flop, turn, river)
 HAND_STATE_FILE = os.path.join(SCRIPT_DIR, "current_hand.json")
@@ -90,11 +91,32 @@ def get_all_known_cards(shared_state: dict) -> tuple[set[str], dict[str, str]]:
     return known, category
 
 
+def enumerate_cameras(max_index: int = MAX_CAMERA_PROBE) -> list[dict]:
+    """Probe camera indices 0..max_index-1 and return list of available cameras."""
+    cameras = []
+    for idx in range(max_index):
+        cap = cv2.VideoCapture(idx)
+        if cap.isOpened():
+            # Try to read the backend name (works on macOS AVFoundation)
+            backend = cap.getBackendName() if hasattr(cap, "getBackendName") else ""
+            w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            cameras.append({
+                "index": idx,
+                "name": f"Camera {idx} ({w}x{h}, {backend})" if backend else f"Camera {idx} ({w}x{h})",
+            })
+            cap.release()
+        else:
+            cap.release()
+    return cameras
+
+
 def run_webcam_worker(shared_state: dict, stop_event: threading.Event):
     """Background thread: webcam + YOLO, update shared state; auto-lock flop/turn/river after 2s stable."""
-    cap = cv2.VideoCapture(0)
+    cam_index = shared_state.get("camera_index", 0)
+    cap = cv2.VideoCapture(cam_index)
     if not cap.isOpened():
-        print("Error: Could not open webcam.")
+        print(f"Error: Could not open camera index {cam_index}.")
         return
 
     model_path = get_model_path(MODEL_FILE)
@@ -102,9 +124,28 @@ def run_webcam_worker(shared_state: dict, stop_event: threading.Event):
 
     try:
         while not stop_event.is_set():
+            # Check if camera switch was requested
+            with shared_state["lock"]:
+                desired = shared_state.get("camera_index", 0)
+            if desired != cam_index:
+                cap.release()
+                cam_index = desired
+                cap = cv2.VideoCapture(cam_index)
+                if not cap.isOpened():
+                    print(f"Error: Could not open camera index {cam_index}.")
+                    with shared_state["lock"]:
+                        shared_state["camera_error"] = f"Could not open camera {cam_index}"
+                    time.sleep(1)
+                    continue
+                else:
+                    with shared_state["lock"]:
+                        shared_state["camera_error"] = None
+                    print(f"Switched to camera index {cam_index}")
+
             ret, frame = cap.read()
             if not ret:
-                break
+                time.sleep(0.1)
+                continue
 
             results = model(frame, verbose=False)
             names = model.names
@@ -251,6 +292,8 @@ shared_state = {
     "pot_state": pot_calc.PotState(),
     "current_street": "flop",  # which street we're deciding on: preflop, flop, turn, river
     "betting_confirmed_up_to": None,  # None | "hole" | "preflop" | "flop" | "turn" | "river"
+    "camera_index": 0,
+    "camera_error": None,
 }
 stop_event = threading.Event()
 
@@ -258,6 +301,33 @@ stop_event = threading.Event()
 @app.route("/health")
 def health():
     return jsonify({"ok": True})
+
+
+@app.route("/api/cameras", methods=["GET"])
+def api_cameras_list():
+    """List available camera devices (probes indices 0..MAX_CAMERA_PROBE-1)."""
+    cameras = enumerate_cameras()
+    with shared_state["lock"]:
+        current = shared_state["camera_index"]
+        error = shared_state.get("camera_error")
+    return jsonify({
+        "cameras": cameras,
+        "current_index": current,
+        "error": error,
+    })
+
+
+@app.route("/api/cameras", methods=["POST"])
+def api_cameras_switch():
+    """Switch to a different camera by index. Body: { "index": int }"""
+    data = request.get_json(force=True, silent=True) or {}
+    idx = data.get("index")
+    if idx is None or not isinstance(idx, int):
+        return jsonify({"ok": False, "error": "missing or invalid 'index'"}), 400
+    with shared_state["lock"]:
+        shared_state["camera_index"] = idx
+        shared_state["camera_error"] = None
+    return jsonify({"ok": True, "camera_index": idx})
 
 
 @app.route("/api/state")

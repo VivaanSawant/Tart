@@ -10,9 +10,11 @@ import {
   updatePotState,
 } from './api/backend'
 import BettingModal from './components/BettingModal'
+import CameraPermission from './components/CameraPermission'
 import CardsPanel from './components/CardsPanel'
 import EquityPanel from './components/EquityPanel'
 import PotOddsPanel from './components/PotOddsPanel'
+import CameraSelector from './components/CameraSelector'
 import VideoFeed from './components/VideoFeed'
 
 const SMALL_BLIND = 0.1
@@ -188,6 +190,7 @@ function App() {
     : 'Hole full (2/2). Click a hole card to remove it, or Clear hand for new hand.'
 
   return (
+    <CameraPermission>
     <div className="app">
       <header className="app-header">
         <h1>PokerPlaya</h1>
@@ -210,6 +213,7 @@ function App() {
 
       <div className="layout">
         <div className="main-area">
+          <CameraSelector />
           <div className="video-wrap">
             <VideoFeed src="/video_feed" />
           </div>
@@ -256,6 +260,7 @@ function App() {
         </aside>
       </div>
     </div>
+    </CameraPermission>
   )
 }
 

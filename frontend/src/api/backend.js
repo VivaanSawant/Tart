@@ -41,3 +41,14 @@ export async function updatePotState(payload) {
     body: JSON.stringify(payload),
   })
 }
+
+export async function listCameras() {
+  return jsonFetch('/api/cameras')
+}
+
+export async function switchCamera(index) {
+  return jsonFetch('/api/cameras', {
+    method: 'POST',
+    body: JSON.stringify({ index }),
+  })
+}

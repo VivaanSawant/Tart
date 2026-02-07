@@ -538,3 +538,127 @@
   color: #eee;
   margin-left: 4px;
 }
+
+/* Camera selector */
+.camera-selector {
+  margin-bottom: 12px;
+}
+
+.btn-camera {
+  padding: 8px 14px;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  background: #3498db;
+  color: #fff;
+}
+
+.btn-camera:hover {
+  background: #2980b9;
+}
+
+.btn-camera:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.camera-list {
+  margin-top: 8px;
+  padding: 12px;
+  background: #16213e;
+  border: 1px solid #2a2a4a;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.camera-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 12px;
+  border: 1px solid #2a2a4a;
+  border-radius: 6px;
+  background: #1a1a2e;
+  color: #eee;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.camera-option:hover {
+  background: #0f0f1a;
+  border-color: #3498db;
+}
+
+.camera-option.active {
+  border-color: #2ecc71;
+  background: #0f0f1a;
+}
+
+/* Camera permission popup */
+.permission-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.permission-box {
+  background: #16213e;
+  border: 1px solid #2a2a4a;
+  border-radius: 16px;
+  padding: 32px;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
+  text-align: center;
+}
+
+.permission-box h2 {
+  margin: 0 0 16px 0;
+  font-size: 1.3rem;
+  color: #eee;
+}
+
+.permission-box p {
+  margin: 0 0 14px 0;
+  font-size: 0.95rem;
+  color: #bbb;
+  line-height: 1.5;
+}
+
+.permission-hint {
+  font-size: 0.85rem !important;
+  color: #888 !important;
+}
+
+.permission-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.btn-secondary {
+  padding: 10px 16px;
+  border: 1px solid #2a2a4a;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  background: transparent;
+  color: #888;
+}
+
+.btn-secondary:hover {
+  background: #1a1a2e;
+  color: #eee;
+}
