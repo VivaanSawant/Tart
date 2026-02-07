@@ -126,7 +126,10 @@ function App() {
         >
           Move Log
         </button>
-        <button type="button" className="btn btn-reset nav-new-table" onClick={handleNewTable}>
+        <button type="button" className="btn btn-clear nav-right-btn" style={{ marginLeft: 'auto' }} onClick={handleClear}>
+          Clear hand
+        </button>
+        <button type="button" className="btn btn-reset nav-right-btn" onClick={handleNewTable}>
           New table
         </button>
       </nav>
@@ -190,10 +193,6 @@ function App() {
                 buyIn={BUY_IN}
               />
             </div>
-
-            <button type="button" className="btn btn-clear" onClick={handleClear}>
-              Clear hand
-            </button>
           </div>
         </div>
       ) : activeTab === 'movelog' ? (

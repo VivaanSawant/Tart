@@ -42,8 +42,7 @@
   z-index: 10;
 }
 
-.nav-new-table {
-  margin-left: auto;
+.nav-right-btn {
   margin-top: 0;
 }
 
@@ -372,7 +371,7 @@
   margin: 0 0 16px 0;
 }
 
-.equity-heatmap {
+.equity-panel .equity-heatmap {
   display: flex;
   flex-direction: column;
   gap: 14px;
