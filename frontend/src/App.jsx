@@ -13,6 +13,7 @@ import EquityPanel from './components/EquityPanel'
 import LandingPage from './components/LandingPage'
 import MoveLog from './components/MoveLog'
 import PotOddsPanel from './components/PotOddsPanel'
+import BotGameView from './components/BotGameView'
 import TableSimulatorView from './components/TableSimulatorView'
 import VideoFeed from './components/VideoFeed'
 
@@ -126,6 +127,13 @@ function App() {
         >
           Move Log
         </button>
+        <button
+          type="button"
+          className={`nav-tab ${activeTab === 'bots' ? 'active' : ''}`}
+          onClick={() => setActiveTab('bots')}
+        >
+          Bots
+        </button>
         <button type="button" className="btn btn-clear nav-right-btn" style={{ marginLeft: 'auto' }} onClick={handleClear}>
           Clear hand
         </button>
@@ -194,6 +202,10 @@ function App() {
         <div className="info-tab">
           <MoveLog moves={moveLog} />
         </div>
+      ) : activeTab === 'bots' ? (
+        <div className="table-hero">
+          <BotGameView />
+        </div>
       ) : (
         <div className="table-hero">
           <TableSimulatorView
@@ -212,13 +224,15 @@ function App() {
         </div>
       )}
 
-      <div className="bottom-bar">
-        <div className="bottom-bar-spacer" />
-        <div className="video-section">
-          <CameraSelector />
-          <VideoFeed src="/video_feed" />
+      {activeTab !== 'bots' && (
+        <div className="bottom-bar">
+          <div className="bottom-bar-spacer" />
+          <div className="video-section">
+            <CameraSelector />
+            <VideoFeed src="/video_feed" />
+          </div>
         </div>
-      </div>
+      )}
     </div>
     </CameraPermission>
   )

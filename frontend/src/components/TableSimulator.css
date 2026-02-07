@@ -571,3 +571,16 @@
   font-size: 0.78rem;
   color: #e74c3c;
 }
+
+.showdown-result {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #f1c40f;
+  margin-right: 12px;
+}
+
+.bot-game-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}

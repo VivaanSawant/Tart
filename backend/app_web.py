@@ -20,6 +20,7 @@ import cv2
 from flask import Flask, Response, jsonify, request
 from ultralytics import YOLO
 
+import bot_game
 import card_logger
 import equitypredict
 import pot_calc
@@ -828,6 +829,73 @@ def api_table_set_hero():
         return jsonify({"ok": False, "error": f"seat must be 0–{n - 1}"}), 400
     ts.set_hero_seat(seat)
     return jsonify({"ok": True, "state": _table_state_to_dict(ts.get_state())})
+
+
+# ---------------------------------------------------------------------------
+# Bot game mode (random cards, bots auto-act, showdown)
+# ---------------------------------------------------------------------------
+bot_game_instance: bot_game.BotGame | None = None
+
+
+def _get_bot_game() -> bot_game.BotGame:
+    global bot_game_instance
+    if bot_game_instance is None:
+        bot_game_instance = bot_game.BotGame(num_players=6)
+    return bot_game_instance
+
+
+@app.route("/api/bot/state")
+def api_bot_state():
+    """Get bot game state. Bots auto-act when it's their turn."""
+    bg = _get_bot_game()
+    if bg.cards is None:
+        bg.start_hand()
+    return jsonify(bg.get_state())
+
+
+@app.route("/api/bot/start", methods=["POST"])
+def api_bot_start():
+    """Start or restart bot game. Body: { "num_players"?: 6 }."""
+    global bot_game_instance
+    data = request.get_json(force=True, silent=True) or {}
+    num_players = int(data.get("num_players") or 6)
+    num_players = max(2, min(10, num_players))
+    bot_game_instance = bot_game.BotGame(num_players=num_players)
+    return jsonify(bot_game_instance.start_hand())
+
+
+@app.route("/api/bot/action", methods=["POST"])
+def api_bot_action():
+    """Hero acts. Body: { "action": "check"|"call"|"fold"|"raise", "amount"?: number }."""
+    data = request.get_json(force=True, silent=True) or {}
+    action = (data.get("action") or "").lower().strip()
+    amount = float(data.get("amount") or 0)
+    if action not in ("check", "call", "fold", "raise"):
+        return jsonify({"ok": False, "error": "action must be check, call, fold, or raise"}), 400
+    bg = _get_bot_game()
+    result = bg.hero_action(action, amount)
+    if result is None:
+        return jsonify({"ok": False, "error": "invalid action (wrong turn?)"}), 400
+    return jsonify({"ok": True, "state": result})
+
+
+@app.route("/api/bot/next_hand", methods=["POST"])
+def api_bot_next_hand():
+    """After showdown, continue to next hand."""
+    bg = _get_bot_game()
+    return jsonify({"ok": True, "state": bg.next_hand()})
+
+
+@app.route("/api/bot/play_style", methods=["POST"])
+def api_bot_play_style():
+    """Set bot aggression. Body: { "aggression": "conservative"|"neutral"|"aggressive" }."""
+    data = request.get_json(force=True, silent=True) or {}
+    aggression = (data.get("aggression") or "").lower().strip()
+    if aggression not in ("conservative", "neutral", "aggressive"):
+        return jsonify({"ok": False, "error": "invalid aggression"}), 400
+    bg = _get_bot_game()
+    bg.set_aggression(aggression)
+    return jsonify({"ok": True, "aggression": aggression})
 
 
 @app.route("/api/table/reset", methods=["POST"])
