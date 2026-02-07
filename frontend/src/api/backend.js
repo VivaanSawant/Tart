@@ -119,6 +119,25 @@ export async function setPlayStyle(aggression) {
   })
 }
 
+/** Request a Decision Transfer report from the backend using the current player profile (Move Log stats). */
+export async function fetchDecisionTransferReport(profile) {
+  const res = await jsonFetch('/api/decision_transfer_report', {
+    method: 'POST',
+    body: JSON.stringify({
+      aggression: profile?.aggression,
+      adherence: profile?.adherence,
+      byAction: profile?.byAction,
+      bluffCount: profile?.bluffCount,
+      bluffRate: profile?.bluffRate,
+      bluffByStreet: profile?.bluffByStreet,
+      avgEquityWhenBluffing: profile?.avgEquityWhenBluffing,
+      totalMoves: profile?.totalMoves,
+    }),
+  })
+  if (!res?.ok) return { ok: false, error: res?.error || 'Failed to load report' }
+  return { ok: true, report: res.report }
+}
+
 // Dedalus audio transcription
 export async function transcribeChunk(blob) {
   const fd = new FormData()
