@@ -10,8 +10,10 @@ async function jsonFetch(url, options = {}) {
 }
 
 export async function fetchState(opts = {}) {
-  const train = opts.train ? '1' : ''
-  const qs = train ? `?train=${train}` : ''
+  const params = new URLSearchParams()
+  if (opts.train) params.set('train', '1')
+  if (opts.train && opts.heroAggression != null) params.set('hero_aggression', String(opts.heroAggression))
+  const qs = params.toString() ? `?${params.toString()}` : ''
   return jsonFetch(`/api/state${qs}`)
 }
 

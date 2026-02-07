@@ -47,7 +47,10 @@ function App() {
 
   const handleFetchState = async () => {
     const train = activeTab === 'train'
-    const data = await fetchState({ train })
+    const data = await fetchState({
+      train,
+      ...(train && { heroAggression }),
+    })
     if (!data) return
     setGameState({
       holeCards: data.hole_cards || [],
@@ -101,6 +104,15 @@ function App() {
   const handleHeroMove = useCallback((move) => {
     setMoveLog((prev) => [...prev, { ...move, timestamp: Date.now() }])
   }, [])
+
+  // Aggression factor 0–100 from move log (same formula as MoveLog). Default 25 when no moves (for Train mode opponents).
+  const heroAggression = (() => {
+    if (moveLog.length === 0) return 25
+    const total = moveLog.length
+    const totalRaises = moveLog.filter((m) => (m.action || '').toLowerCase() === 'raise').length
+    const totalCalls = moveLog.filter((m) => (m.action || '').toLowerCase() === 'call').length
+    return Math.round(((totalRaises + totalCalls * 0.5) / total) * 100)
+  })()
 
   if (showLanding) {
     return <LandingPage onEnter={() => setShowLanding(false)} />

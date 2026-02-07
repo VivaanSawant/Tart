@@ -33,6 +33,13 @@
   line-height: 1.6;
 }
 
+.move-log-empty-hint {
+  color: #6a6a8a;
+  font-size: 0.9rem;
+  margin: -40px 20px 0;
+  line-height: 1.5;
+}
+
 .move-log-section {
   margin-bottom: 40px;
 }

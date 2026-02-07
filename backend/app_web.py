@@ -542,6 +542,20 @@ def api_state():
                 shared_state["train_opponent_cards"] = stored_cards
         train_opponent_cards = {str(k): v for k, v in stored_cards.items()}
 
+        # Opponent aggression = inverse of hero's aggression factor (Move Log 0–100; default 25 if none shown)
+        try:
+            hero_aggression = int(request.args.get("hero_aggression", 25))
+        except (TypeError, ValueError):
+            hero_aggression = 25
+        hero_aggression = max(0, min(100, hero_aggression))
+        opponent_factor = 100 - hero_aggression
+        if opponent_factor <= 33:
+            opponent_style = "conservative"
+        elif opponent_factor <= 66:
+            opponent_style = "neutral"
+        else:
+            opponent_style = "aggressive"
+
         n_players_equity = max(2, len(players_in_hand))
         pot_state = _pot_state_from_table(table_state, to_call)
         train_player_analyses = {}
@@ -565,7 +579,7 @@ def api_state():
                     current_street, eq_f, eq_t, eq_r, equity_preflop=eq_pre
                 )
                 rec, rec_reason = pot_calc.recommendation(
-                    eq_street, current_street, pot_state, aggression="neutral"
+                    eq_street, current_street, pot_state, aggression=opponent_style
                 )
             train_player_analyses[str(seat)] = {
                 "equity_preflop": eq_pre,

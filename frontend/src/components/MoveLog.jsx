@@ -92,6 +92,7 @@ export default function MoveLog({ moves = [] }) {
         <div className="move-log-hero">
           <h1>Move Log</h1>
           <p className="move-log-empty">No moves logged yet. Play hands to see your moves, equity, optimal plays, and visual analytics here.</p>
+          <p className="move-log-empty-hint">Your aggression factor (used for Train mode opponents): <strong>25</strong> until you have logged moves.</p>
         </div>
       </div>
     )
