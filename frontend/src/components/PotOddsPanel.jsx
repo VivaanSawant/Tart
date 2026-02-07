@@ -34,7 +34,7 @@ export default function PotOddsPanel({
 
   return (
     <Box>
-      <Typography variant="h6" gutterBottom>Pot &amp; odds (from table)</Typography>
+      <Typography variant="h6" gutterBottom sx={{ fontSize: '0.85rem' }}>Pot &amp; odds (from table)</Typography>
 
       <Typography variant="body2" sx={{ mb: 1.5 }}>
         Blinds: {formatMoney(smallBlind)} / {formatMoney(bigBlind)} &nbsp;|&nbsp; Buy-in: {formatMoney(buyIn)}

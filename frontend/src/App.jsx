@@ -246,13 +246,13 @@ function App() {
               />
             </Box>
 
-            {/* Info panels — 3-column layout below the table */}
+            {/* Info panels — 4-column layout below the table (columns ~20% wider for full width) */}
             <Box
               sx={{
                 flex: 1,
                 minHeight: 0,
                 display: 'grid',
-                gridTemplateColumns: '1.3fr 1fr 1fr 1fr',
+                gridTemplateColumns: '1.56fr 1.2fr 1.2fr 1.2fr',
                 gap: 1.5,
                 pt: 1,
                 pb: 0.5,
