@@ -10,6 +10,10 @@ import Typography from '@mui/material/Typography'
 import Stack from '@mui/material/Stack'
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import ToggleButton from '@mui/material/ToggleButton'
+import FormControl from '@mui/material/FormControl'
+import InputLabel from '@mui/material/InputLabel'
+import Select from '@mui/material/Select'
+import MenuItem from '@mui/material/MenuItem'
 
 import {
   clearHand,
@@ -34,9 +38,12 @@ const BUY_IN = 10
 
 const TAB_VALUES = ['game', 'movelog', 'bots']
 
+const PLAYER_COUNT_OPTIONS = [2, 3, 4, 5, 6, 7, 8, 9, 10]
+
 function App() {
   const [showLanding, setShowLanding] = useState(true)
   const [activeTab, setActiveTab] = useState('game')
+  const [tableNumPlayers, setTableNumPlayers] = useState(6)
   const [moveLog, setMoveLog] = useState([])
   const [gameState, setGameState] = useState({
     holeCards: [],
@@ -88,13 +95,19 @@ function App() {
     return () => clearInterval(interval)
   }, [])
 
+  // Sync table player count from server state when available
+  useEffect(() => {
+    const n = gameState.table?.num_players
+    if (n != null && n >= 2 && n <= 10) setTableNumPlayers(n)
+  }, [gameState.table?.num_players])
+
   const handleClear = async () => {
     const res = await clearHand()
     if (res && res.ok) handleFetchState()
   }
 
   const handleNewTable = async () => {
-    const res = await tableReset()
+    const res = await tableReset(tableNumPlayers)
     if (res && res.ok) handleFetchState()
   }
 
@@ -151,10 +164,23 @@ function App() {
           {/* Centered slot for the actions HUD (rendered via portal from TableSimulatorView) */}
           <Box id="actions-hud-slot" sx={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', minWidth: 0 }} />
 
-          {/* Right side: Bots tab → New game (portalled from BotGameView); Game/Move Log → Clear hand + New table */}
-          <Box id="header-right-slot" sx={{ flexShrink: 0, display: 'flex', gap: 1 }}>
+          {/* Right side: Bots tab → New game + players (portalled from BotGameView); Game/Move Log → Players + Clear hand + New table */}
+          <Box id="header-right-slot" sx={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 1 }}>
             {activeTab !== 'bots' && (
               <>
+                <FormControl size="small" sx={{ minWidth: 100 }}>
+                  <InputLabel id="table-players-label">Players</InputLabel>
+                  <Select
+                    labelId="table-players-label"
+                    value={tableNumPlayers}
+                    label="Players"
+                    onChange={(e) => setTableNumPlayers(Number(e.target.value))}
+                  >
+                    {PLAYER_COUNT_OPTIONS.map((n) => (
+                      <MenuItem key={n} value={n}>{n}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
                 <Button variant="outlined" color="error" size="small" onClick={handleClear}>
                   Clear hand
                 </Button>

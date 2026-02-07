@@ -10,6 +10,10 @@ import Button from '@mui/material/Button'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
 import Chip from '@mui/material/Chip'
+import FormControl from '@mui/material/FormControl'
+import InputLabel from '@mui/material/InputLabel'
+import Select from '@mui/material/Select'
+import MenuItem from '@mui/material/MenuItem'
 import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
@@ -25,9 +29,12 @@ function formatMoney(val) {
   return '$' + Number(val).toFixed(2)
 }
 
+const PLAYER_COUNT_OPTIONS = [2, 3, 4, 5, 6, 7, 8, 9, 10]
+
 export default function BotGameView({ playerProfile = null }) {
   const [state, setState] = useState(null)
   const [raiseAmount, setRaiseAmount] = useState(0.4)
+  const [numPlayers, setNumPlayers] = useState(6)
   const [error, setError] = useState(null)
 
   const heroSeat = state?.hero_seat ?? 0
@@ -74,6 +81,12 @@ export default function BotGameView({ playerProfile = null }) {
     const interval = setInterval(loadState, 500)
     return () => clearInterval(interval)
   }, [loadState])
+
+  // Sync player count from server when we have state
+  useEffect(() => {
+    const n = state?.num_players
+    if (n != null && n >= 2 && n <= 10) setNumPlayers(n)
+  }, [state?.num_players])
 
   // Only auto-set raise when hand/street changes — not on every poll
   const lastAutoSetRef = useRef('')
@@ -132,12 +145,12 @@ export default function BotGameView({ playerProfile = null }) {
   }, [])
 
   const handleNewGame = useCallback(async () => {
-    const res = await botStart(6)
+    const res = await botStart(numPlayers)
     if (res) {
       setState(res)
       setError(null)
     }
-  }, [])
+  }, [numPlayers])
 
   if (!state) {
     return (
@@ -146,9 +159,24 @@ export default function BotGameView({ playerProfile = null }) {
           <CircularProgress size={24} />
           <Typography color="text.secondary">Loading bot game…</Typography>
         </Stack>
-        <Button variant="contained" color="primary" onClick={handleNewGame}>
-          Start new game
-        </Button>
+        <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap" justifyContent="center">
+          <FormControl size="small" sx={{ minWidth: 100 }}>
+            <InputLabel id="bot-players-init-label">Players</InputLabel>
+            <Select
+              labelId="bot-players-init-label"
+              value={numPlayers}
+              label="Players"
+              onChange={(e) => setNumPlayers(Number(e.target.value))}
+            >
+              {PLAYER_COUNT_OPTIONS.map((n) => (
+                <MenuItem key={n} value={n}>{n}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <Button variant="contained" color="primary" onClick={handleNewGame}>
+            Start new game
+          </Button>
+        </Stack>
       </Box>
     )
   }
@@ -537,14 +565,29 @@ export default function BotGameView({ playerProfile = null }) {
         )
       })()}
 
-      {/* New game button — portalled into header right slot when Bots tab is active */}
+      {/* New game + players — portalled into header right slot when Bots tab is active */}
       {(() => {
         const slot = document.getElementById('header-right-slot')
         if (!slot) return null
         return createPortal(
-          <Button variant="contained" color="secondary" size="small" onClick={handleNewGame}>
-            New game
-          </Button>,
+          <Stack direction="row" spacing={1} alignItems="center">
+            <FormControl size="small" sx={{ minWidth: 100 }}>
+              <InputLabel id="bot-players-label">Players</InputLabel>
+              <Select
+                labelId="bot-players-label"
+                value={numPlayers}
+                label="Players"
+                onChange={(e) => setNumPlayers(Number(e.target.value))}
+              >
+                {PLAYER_COUNT_OPTIONS.map((n) => (
+                  <MenuItem key={n} value={n}>{n}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <Button variant="contained" color="secondary" size="small" onClick={handleNewGame}>
+              New game
+            </Button>
+          </Stack>,
           slot
         )
       })()}
