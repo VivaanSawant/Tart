@@ -7,11 +7,17 @@ import {
   lockHole,
   lockHoleAll,
 } from './api/backend'
+import CameraPermission from './components/CameraPermission'
+import CameraSelector from './components/CameraSelector'
 import CardsPanel from './components/CardsPanel'
 import EquityPanel from './components/EquityPanel'
 import PotOddsPanel from './components/PotOddsPanel'
 import TableSimulatorView from './components/TableSimulatorView'
+import VideoFeed from './components/VideoFeed'
+
+const SMALL_BLIND = 0.1
 const BIG_BLIND = 0.2
+const BUY_IN = 10
 
 
 function App() {
@@ -105,7 +111,13 @@ function App() {
           <div className="video-wrap">
             <VideoFeed src="/video_feed" />
           </div>
-          <TableSimulatorView />
+          <TableSimulatorView
+            holeCount={gameState.holeCards.length}
+            flopCount={gameState.flopCards.length}
+            hasTurn={gameState.turnCard != null}
+            hasRiver={gameState.riverCard != null}
+            potInfo={gameState.potInfo}
+          />
           <CardsPanel
             holeCards={gameState.holeCards}
             availableCards={gameState.availableCards}
