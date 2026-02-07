@@ -461,10 +461,14 @@ def _pot_state_from_table(table_state, to_call: float):
         def required_equity_pct(self, street):
             return required
 
+        def pot_before_our_call(self, street):
+            return pot
+
     return _TablePotAdapter()
 
 
 def _table_state_to_dict(s) -> dict:
+    ts = _get_table_sim()
     return {
         "dealer_seat": s.dealer_seat,
         "sb_seat": s.sb_seat,
@@ -476,10 +480,12 @@ def _table_state_to_dict(s) -> dict:
         "players_in_hand": list(s.players_in_hand),
         "player_bets_this_street": {str(k): v for k, v in s.player_bets_this_street.items()},
         "hand_number": s.hand_number,
-        "hero_seat": _get_table_sim().config.hero_seat,
-        "hero_position": _get_table_sim().get_hero_position(),
-        "num_players": _get_table_sim().config.num_players,
-        "cost_to_call": _get_table_sim().cost_to_call(s.current_actor) if s.current_actor is not None else 0,
+        "hero_seat": ts.config.hero_seat,
+        "hero_position": ts.get_hero_position(),
+        "num_players": ts.config.num_players,
+        "cost_to_call": ts.cost_to_call(s.current_actor) if s.current_actor is not None else 0,
+        "player_stacks": {str(k): round(v, 2) for k, v in s.player_stacks.items()},
+        "all_in_players": list(s.all_in_players),
     }
 
 
@@ -605,14 +611,24 @@ def api_state():
     )
     with shared_state["lock"]:
         play_style = shared_state.get("play_style", "neutral")
+
+    # Hero stack for stack-aware recommendations
+    hero_stack = None
+    if hero_seat is not None:
+        hero_stack = ts.remaining_stack(hero_seat)
+
     verdict, reason = pot_calc.recommendation(
         equity_for_street, current_street,
         _pot_state_from_table(table_state, to_call),
         aggression=play_style,
+        stack_size=hero_stack,
     )
     suggested_raise = None
     if verdict == "raise":
         half_pot = max(0.2, 0.5 * pot_total)
+        # Cap to hero's remaining stack
+        if hero_stack is not None and half_pot > hero_stack:
+            half_pot = hero_stack
         suggested_raise = round(half_pot, 2)
 
     # Hand-type probabilities (Royal Flush, Straight Flush, etc.)
@@ -728,12 +744,13 @@ def api_confirm_betting():
         return jsonify({"ok": False, "error": f"CV has not detected {needed} yet. Show cards to camera first."}), 400
 
     cost = ts.cost_to_call(state.current_actor)
+    hero_stack = ts.remaining_stack(state.current_actor)
     if action == "check" and cost > 0:
         return jsonify({"ok": False, "error": "Cannot check when there is a bet"}), 400
     if action == "call":
-        amount = max(amount, cost)
+        amount = min(max(amount, cost), hero_stack)
     elif action == "raise":
-        amount = max(amount, 0.2)  # min raise
+        amount = min(max(amount, 0.2), hero_stack)  # min raise, capped to stack
     elif action == "check":
         amount = 0
 
@@ -931,6 +948,10 @@ def api_table_action():
             "ok": False,
             "error": f"CV has not detected {needed} yet. Show cards to camera first.",
         }), 400
+    # Cap amount to player's remaining stack
+    player_stack = ts.remaining_stack(int(seat))
+    if action in (CALL, RAISE) and amount > player_stack:
+        amount = player_stack
     result = ts.record_action(int(seat), action, amount, is_hero_acting=is_hero_acting)
     if result is None:
         return jsonify({"ok": False, "error": "invalid action (wrong turn?)"}), 400

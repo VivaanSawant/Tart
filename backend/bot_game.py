@@ -130,6 +130,9 @@ def _pot_state_for_bot(table_state, cost_to_call: float):
             pot_after = pot + cost_to_call if cost_to_call > 0 else pot
             return (100.0 * cost_to_call / pot_after) if cost_to_call > 0 and pot_after > 0 else None
 
+        def pot_before_our_call(self, street):
+            return table_state.pot
+
     return Adapter()
 
 
@@ -144,8 +147,9 @@ def _bot_decide_impl(
     cost_to_call: float,
     num_players: int,
     aggression: str,
+    remaining_stack: float = 10.0,
 ) -> tuple[str, float]:
-    """Internal: get bot action given cost_to_call."""
+    """Internal: get bot action given cost_to_call and remaining stack."""
     # Get equity for this seat
     if street == "preflop":
         eq = equitypredict.equity_preflop(hole, num_players)
@@ -155,17 +159,20 @@ def _bot_decide_impl(
         eq = pot_calc.get_equity_for_street(street, eq_flop, eq_turn, eq_river, equity_preflop=None)
 
     pot_adapter = _pot_state_for_bot(table_state, cost_to_call)
-    verdict, _ = pot_calc.recommendation(eq, street, pot_adapter, aggression=aggression)
+    verdict, _ = pot_calc.recommendation(
+        eq, street, pot_adapter, aggression=aggression, stack_size=remaining_stack,
+    )
 
     if verdict == "fold":
         return FOLD, 0
     if verdict == "check":
         return CHECK, 0
     if verdict == "call":
-        return CALL, cost_to_call
+        return CALL, min(cost_to_call, remaining_stack)
     if verdict == "raise":
         pot = table_state.pot
-        amount = max(0.2, 0.5 * pot)  # half pot raise
+        amount = max(0.2, 0.5 * pot)
+        amount = min(amount, remaining_stack)  # cap to stack
         return RAISE, amount
     return CHECK, 0
 
@@ -176,6 +183,8 @@ class BotGame:
     Hero is always seat 0.
     """
 
+    BUY_IN = 10.00  # Default starting stack
+
     def __init__(self, num_players: int = 6, bot_delay_seconds: float = 1.5):
         self.num_players = max(2, min(10, num_players))
         self.hero_seat = 0
@@ -184,28 +193,38 @@ class BotGame:
         self.showdown: dict | None = None  # winner_seat, hands, board, etc.
         self._frozen_state = None  # state at moment hand ended (for showdown display)
         self._table = TableSimulator(
-            config=TableConfig(num_players=self.num_players, hero_seat=self.hero_seat),
+            config=TableConfig(
+                num_players=self.num_players,
+                hero_seat=self.hero_seat,
+                buy_in=self.BUY_IN,
+                reset_stacks_each_hand=False,  # stacks persist across hands in bot game
+            ),
             on_hand_ended=self._on_hand_ended,
         )
         self._aggression = "neutral"
         self._state_lock = threading.Lock()
 
     def _on_hand_ended(self, state):
-        """When hand ends, compute showdown if hero was in. Store frozen state and deal next hand."""
+        """When hand ends, compute showdown if hero was in. Store frozen state, award pot, deal next hand."""
         self._frozen_state = state
+        pot_amount = state.pot
         players_in = list(state.players_in_hand)
         if self.hero_seat not in players_in:
             winner = players_in[0] if len(players_in) == 1 else None
             hands = {s: self.cards["hole_cards"][s] for s in players_in} if players_in else {}
             self.showdown = {"winner_seat": winner, "hands": hands, "board": {"flop": self.cards["flop"], "turn": self.cards["turn"], "river": self.cards["river"]}}
+            if winner is not None:
+                self._table.award_pot(winner, pot_amount)
             self._deal_next_hand()
             return
         if len(players_in) == 1:
+            winner = players_in[0]
             self.showdown = {
-                "winner_seat": players_in[0],
-                "hands": {players_in[0]: self.cards["hole_cards"][players_in[0]]},
+                "winner_seat": winner,
+                "hands": {winner: self.cards["hole_cards"][winner]},
                 "board": {"flop": self.cards["flop"], "turn": self.cards["turn"], "river": self.cards["river"]},
             }
+            self._table.award_pot(winner, pot_amount)
             self._deal_next_hand()
             return
         winner, ranks = evaluate_showdown(
@@ -222,6 +241,8 @@ class BotGame:
             "ranks": ranks,
             "board": {"flop": self.cards["flop"], "turn": self.cards["turn"], "river": self.cards["river"]},
         }
+        if winner is not None:
+            self._table.award_pot(winner, pot_amount)
         self._deal_next_hand()
 
     def _deal_next_hand(self):
@@ -258,9 +279,11 @@ class BotGame:
             turn = self.cards.get("turn") if state.street in ("turn", "river") else None
             river = self.cards.get("river") if state.street == "river" else None
 
+            bot_stack = ts.remaining_stack(seat)
             action, amount = _bot_decide_impl(
                 seat, hole, flop, turn, river,
                 state.street, state, cost, self.num_players, self._aggression,
+                remaining_stack=bot_stack,
             )
             result = ts.record_action(seat, action, amount, is_hero_acting=False)
             if result is not None:
@@ -285,12 +308,14 @@ class BotGame:
             if state.current_actor != self.hero_seat:
                 return None
             cost = ts.cost_to_call(self.hero_seat)
+            hero_stack = ts.remaining_stack(self.hero_seat)
             if action == "check" and cost > 0:
                 return None
             if action == "call":
-                amount = max(amount, cost)
+                amount = min(max(amount, cost), hero_stack)
             elif action == "raise":
                 amount = max(amount, 0.2)
+                amount = min(amount, hero_stack)  # cap to remaining stack
 
             action_map = {"check": CHECK, "call": CALL, "fold": FOLD, "raise": RAISE}
             act = action_map.get(action.lower())
@@ -344,6 +369,8 @@ class BotGame:
             "hero_seat": self.hero_seat,
             "num_players": self.num_players,
             "cost_to_call": ts.cost_to_call(state.current_actor) if state.current_actor is not None else 0,
+            "player_stacks": {str(k): round(v, 2) for k, v in state.player_stacks.items()},
+            "all_in_players": list(state.all_in_players),
             "hole_cards": hole,
             "flop": flop,
             "turn": turn,

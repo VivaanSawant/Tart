@@ -132,11 +132,13 @@ def recommendation(
     street: str,
     pot_state: PotState,
     aggression: str | None = "neutral",
+    stack_size: float | None = None,
 ) -> tuple[str, str]:
     """
     Given our hand equity (0–100), the street we're on, and pot state,
     return (verdict, reason). aggression: "aggressive" | "neutral" | "conservative"
     adjusts call/raise thresholds (aggressive = lower equity to call/raise).
+    stack_size: hero's remaining chip stack (if known) — influences SPR-based advice.
     """
     if street not in STREETS:
         return "no_bet", f"Unknown street: {street}"
@@ -149,6 +151,39 @@ def recommendation(
     to_call = pot_state.amount_to_call(street)
     required_raw = pot_state.required_equity_pct(street)
     required = (required_raw + call_buffer) if required_raw is not None else None
+
+    # Stack-to-Pot Ratio (SPR) logic — when stack is small relative to pot,
+    # the player is effectively pot-committed.
+    pot_total = pot_state.pot_before_our_call(street) if hasattr(pot_state, 'pot_before_our_call') else 0
+    spr = None
+    if stack_size is not None and pot_total > 0:
+        spr = stack_size / pot_total
+
+    # Short-stack push-or-fold: if stack < 5 big blinds (~$1.00 in 10¢/20¢),
+    # simplify to all-in or fold.
+    if stack_size is not None and stack_size <= 1.00 and equity_pct is not None:
+        if equity_pct >= 30:
+            return (
+                "raise",
+                f"Short stack (${stack_size:.2f}). Equity {equity_pct:.1f}% — push all-in.",
+            )
+        return (
+            "fold",
+            f"Short stack (${stack_size:.2f}). Equity {equity_pct:.1f}% too low — fold.",
+        )
+
+    # Pot-committed: SPR < 3 and facing a bet — commit with decent equity
+    if spr is not None and spr < 3 and to_call > 0 and equity_pct is not None:
+        if equity_pct >= 30:
+            return (
+                "raise",
+                f"Pot-committed (SPR {spr:.1f}). Equity {equity_pct:.1f}% — go all-in.",
+            )
+        if equity_pct >= 20:
+            return (
+                "call",
+                f"Pot-committed (SPR {spr:.1f}). Equity {equity_pct:.1f}% — call.",
+            )
 
     # No bet to call — we can check or bet
     if to_call <= 0:

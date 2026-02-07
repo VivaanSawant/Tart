@@ -58,7 +58,9 @@ class TableConfig:
     num_players: int = 6
     small_blind: float = 0.10
     big_blind: float = 0.20
+    buy_in: float = 10.00
     hero_seat: int | None = None  # Auto-detected when hero acts with special button
+    reset_stacks_each_hand: bool = True  # True for CV game tab; False for bot games
 
 
 @dataclass
@@ -74,6 +76,8 @@ class HandState:
     players_in_hand: tuple[int, ...]
     player_bets_this_street: dict[int, float]
     hand_number: int
+    player_stacks: dict[int, float] = field(default_factory=dict)
+    all_in_players: tuple[int, ...] = ()  # seats that are all-in (stack=0, still in hand)
     is_new_hand: bool = False  # True right after a new hand starts
 
 
@@ -105,6 +109,11 @@ class TableSimulator:
         self._last_raiser_seat: int | None = None
         self._current_actor: int | None = None
         self._action_history: list[tuple[int, str, float]] = []
+        # Chip stacks
+        self._player_stacks: dict[int, float] = {
+            i: self.config.buy_in for i in range(self.config.num_players)
+        }
+        self._all_in_players: set[int] = set()
         self._start_new_hand()
 
     def _start_new_hand(self) -> None:
@@ -119,15 +128,37 @@ class TableSimulator:
         self._sb_seat = (self._dealer_seat + 1) % n
         self._bb_seat = (self._dealer_seat + 2) % n
 
+        # Stacks: reset every hand (CV game tab) or persist (bot game)
+        if self.config.reset_stacks_each_hand:
+            self._player_stacks = {i: self.config.buy_in for i in range(n)}
+        else:
+            # Auto-rebuy busted players (stack < big blind)
+            for i in range(n):
+                if self._player_stacks.get(i, 0) < bb:
+                    self._player_stacks[i] = self.config.buy_in
+
+        # Deduct blinds from stacks
+        sb_actual = min(sb, self._player_stacks.get(self._sb_seat, 0))
+        bb_actual = min(bb, self._player_stacks.get(self._bb_seat, 0))
+        self._player_stacks[self._sb_seat] -= sb_actual
+        self._player_stacks[self._bb_seat] -= bb_actual
+
         self._street = Street.PREFLOP
-        self._pot = sb + bb
-        self._current_bet = bb
+        self._pot = sb_actual + bb_actual
+        self._current_bet = bb_actual
         self._players_in_hand = set(range(n))
+        self._all_in_players = set()
         self._player_bets = {i: 0.0 for i in range(n)}
-        self._player_bets[self._sb_seat] = sb
-        self._player_bets[self._bb_seat] = bb
+        self._player_bets[self._sb_seat] = sb_actual
+        self._player_bets[self._bb_seat] = bb_actual
         self._last_raiser_seat = self._bb_seat
         self._action_history = []
+
+        # If SB or BB went all-in just from posting blinds, mark them
+        if self._player_stacks.get(self._sb_seat, 0) <= 0:
+            self._all_in_players.add(self._sb_seat)
+        if self._player_stacks.get(self._bb_seat, 0) <= 0:
+            self._all_in_players.add(self._bb_seat)
 
         # Preflop: first to act is UTG (left of BB)
         first = (self._bb_seat + 1) % n
@@ -158,12 +189,12 @@ class TableSimulator:
         )
 
     def _action_order_from(self, start: int) -> list[int]:
-        """Players to act, clockwise from start, excluding folded."""
+        """Players to act, clockwise from start, excluding folded and all-in."""
         n = self.config.num_players
         order = []
         for i in range(n):
             seat = (start + i) % n
-            if seat in self._players_in_hand:
+            if seat in self._players_in_hand and seat not in self._all_in_players:
                 order.append(seat)
         return order
 
@@ -185,13 +216,28 @@ class TableSimulator:
         # Postflop (flop/turn/river): action starts at small blind; if SB folded, next available player.
         # Heads-up: button acts first postflop.
         first = self._dealer_seat if n == 2 else self._sb_seat
-        self._to_act = self._action_order_from(first)  # only players still in hand, clockwise from first
-        self._current_actor = self._to_act[0] if self._to_act else None
+        self._to_act = self._action_order_from(first)  # excludes folded and all-in
+
+        # If no one left to act (everyone is all-in), or only one active
+        # player left (no one to bet against), auto-advance to showdown.
+        active_count = len(self._players_in_hand) - len(
+            self._all_in_players & self._players_in_hand
+        )
+        if not self._to_act or active_count <= 1:
+            self._to_act = []
+            self._current_actor = None
+            if self._street == Street.RIVER:
+                return True
+            return self._advance_street()  # recurse to next street
+
+        self._current_actor = self._to_act[0]
         return False
 
     def _all_matched(self) -> bool:
-        """True if everyone still in has put in current_bet."""
+        """True if every active (non-all-in) player still in has put in current_bet."""
         for seat in self._players_in_hand:
+            if seat in self._all_in_players:
+                continue  # all-in player has committed everything they can
             if self._player_bets.get(seat, 0) < self._current_bet:
                 return False
         return True
@@ -214,6 +260,8 @@ class TableSimulator:
             return None
         if seat not in self._players_in_hand:
             return None
+        if seat in self._all_in_players:
+            return None  # all-in players cannot act
 
         if is_hero_acting:
             self.set_hero_seat(seat)
@@ -260,30 +308,39 @@ class TableSimulator:
             self._advance_current_actor()
             return self.get_state()
 
+        remaining = self._player_stacks.get(seat, 0)
+
         if action == CHECK:
             if to_call > 0:
                 return None  # Can't check when there's a bet
             self._action_history.append((seat, CHECK, 0.0))
         elif action == CALL:
-            add = min(to_call, amount if amount > 0 else to_call)
-            if add < to_call and add > 0:
-                add = to_call  # Must match full bet
+            add = min(to_call, remaining)  # all-in if not enough
             self._player_bets[seat] = self._player_bets.get(seat, 0) + add
             self._pot += add
+            self._player_stacks[seat] -= add
             self._action_history.append((seat, CALL, add))
+            # Mark all-in
+            if self._player_stacks[seat] <= 0:
+                self._all_in_players.add(seat)
         elif action == RAISE:
             min_raise = 0.01
             raise_size = amount if amount > 0 else min_raise
             add = to_call + raise_size
             if add <= to_call:
                 add = to_call + min_raise
+            add = min(add, remaining)  # cap to remaining stack (all-in)
             self._player_bets[seat] = self._player_bets.get(seat, 0) + add
             self._current_bet = self._player_bets[seat]
             self._pot += add
+            self._player_stacks[seat] -= add
             self._last_raiser_seat = seat
             self._action_history.append((seat, RAISE, add))
+            # Mark all-in
+            if self._player_stacks[seat] <= 0:
+                self._all_in_players.add(seat)
 
-            # Everyone after the raiser gets to act again
+            # Everyone after the raiser gets to act again (excludes all-in players)
             first_after = (seat + 1) % n
             new_to_act = [
                 s for s in self._action_order_from(first_after)
@@ -328,12 +385,22 @@ class TableSimulator:
             players_in_hand=tuple(sorted(self._players_in_hand)),
             player_bets_this_street=dict(self._player_bets),
             hand_number=self._hand_number,
+            player_stacks=dict(self._player_stacks),
+            all_in_players=tuple(sorted(self._all_in_players)),
         )
 
     def cost_to_call(self, seat: int) -> float:
         """Amount seat needs to put in to call this street."""
         my_bet = self._player_bets.get(seat, 0)
         return max(0.0, self._current_bet - my_bet)
+
+    def remaining_stack(self, seat: int) -> float:
+        """Remaining chip stack for the given seat."""
+        return self._player_stacks.get(seat, 0.0)
+
+    def award_pot(self, seat: int, amount: float) -> None:
+        """Award chips to a player (e.g. pot winner)."""
+        self._player_stacks[seat] = self._player_stacks.get(seat, 0) + amount
 
     @property
     def current_actor(self) -> int | None:

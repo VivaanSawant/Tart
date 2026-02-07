@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { botAction, botFetchState, botNextHand, botStart } from '../api/backend'
 import { getCardImage } from '../utils/cardImages'
@@ -54,6 +54,11 @@ export default function BotGameView({ playerProfile = null }) {
   const costToCall = state?.cost_to_call ?? 0
   const canCheck = costToCall <= 0
 
+  // Stack tracking
+  const playerStacks = state?.player_stacks ?? {}
+  const allInPlayers = state?.all_in_players ?? []
+  const heroStack = Number(playerStacks[String(heroSeat)] ?? 10)
+
   const loadState = useCallback(async () => {
     const data = await botFetchState()
     if (data) {
@@ -70,11 +75,17 @@ export default function BotGameView({ playerProfile = null }) {
     return () => clearInterval(interval)
   }, [loadState])
 
+  // Only auto-set raise when hand/street changes — not on every poll
+  const lastAutoSetRef = useRef('')
   useEffect(() => {
+    const key = `${state?.hand_number}_${street}`
+    if (key === lastAutoSetRef.current) return
+    lastAutoSetRef.current = key
     if (state?.pot && state.pot > 0) {
-      setRaiseAmount(Math.max(0.2, 0.5 * state.pot))
+      const halfPot = Math.max(0.2, 0.5 * state.pot)
+      setRaiseAmount(Math.min(halfPot, heroStack))
     }
-  }, [state?.pot])
+  }, [state?.hand_number, street, state?.pot, heroStack])
 
   const handleAction = useCallback(async (action, amount = 0) => {
     const res = await botAction(action, amount)
@@ -105,7 +116,7 @@ export default function BotGameView({ playerProfile = null }) {
       if (cmd.amount != null && cmd.amount > 0) { amount = cmd.amount }
       else return // couldn't parse raise amount
     } else if (action === 'allin') {
-      action = 'raise'; amount = 999
+      action = 'raise'; amount = heroStack
     }
     handleAction(action, amount)
   }, [currentActor, heroSeat, costToCall, handleAction])
@@ -326,6 +337,8 @@ export default function BotGameView({ playerProfile = null }) {
               const bet = state.player_bets_this_street?.[String(seat)] ?? 0
               const isHero = seat === heroSeat
               const cardsForSeat = showdown ? showdownHands[seat] : (isHero ? holeCards : null)
+              const stack = Number(playerStacks[String(seat)] ?? 10)
+              const isAllIn = allInPlayers.includes(seat)
 
               return (
                 <Paper
@@ -358,6 +371,9 @@ export default function BotGameView({ playerProfile = null }) {
                       {isHero && <Chip label="YOU" size="small" color="success" sx={{ height: 20, fontSize: '0.7rem' }} />}
                       {!isHero && inHand && <Chip label="BOT" size="small" sx={{ height: 20, fontSize: '0.7rem', bgcolor: '#555', color: '#fff' }} />}
                     </Stack>
+                    <Typography sx={{ fontSize: '0.75rem', color: stack <= 1 ? '#e74c3c' : '#2ecc71', fontWeight: 700 }}>
+                      {formatMoney(stack)}
+                    </Typography>
                     {!isHero && inHand && (
                       <Typography variant="caption" color="text.secondary" title="This opponent adjusts to your play">
                         Exploit
@@ -368,6 +384,7 @@ export default function BotGameView({ playerProfile = null }) {
                       {isSB && <Chip label="SB" size="small" sx={{ height: 20, fontSize: '0.7rem', bgcolor: '#9b59b6', color: '#fff' }} />}
                       {isBB && <Chip label="BB" size="small" sx={{ height: 20, fontSize: '0.7rem', bgcolor: '#e67e22', color: '#fff' }} />}
                       {isCurrent && !showdown && <Chip label="→" size="small" sx={{ height: 20, fontSize: '0.7rem', bgcolor: '#2ecc71', color: '#1a1a2e' }} />}
+                      {isAllIn && !showdown && <Chip label="ALL-IN" size="small" sx={{ height: 20, fontSize: '0.7rem', bgcolor: '#e74c3c', color: '#fff', fontWeight: 700 }} />}
                       {showdown && showdown.winner_seat === seat && (
                         <Chip label="WIN" size="small" sx={{ height: 20, fontSize: '0.7rem', bgcolor: '#2ecc71', color: '#1a1a2e' }} />
                       )}
@@ -459,24 +476,25 @@ export default function BotGameView({ playerProfile = null }) {
                     </Button>
                   )}
                   {costToCall > 0 && (
-                    <Button size="small" variant="contained" sx={btnSx} onClick={() => handleAction('call', costToCall)}>
-                      Call {formatMoney(costToCall)}
+                    <Button size="small" variant="contained" sx={btnSx} onClick={() => handleAction('call', Math.min(costToCall, heroStack))}>
+                      Call {formatMoney(Math.min(costToCall, heroStack))}
                     </Button>
                   )}
                   <Button size="small" variant="contained" sx={btnSx} onClick={() => handleAction('fold', 0)}>
                     Fold
                   </Button>
-                  <Button size="small" variant="contained" sx={btnSx} onClick={() => handleAction('raise', raiseAmount)}>
-                    Raise
+                  <Button size="small" variant="contained" sx={btnSx} onClick={() => handleAction('raise', Math.min(raiseAmount, heroStack))}>
+                    {raiseAmount >= heroStack ? 'All-in' : 'Raise'}
                   </Button>
                   <TextField
                     type="number"
                     size="small"
-                    inputProps={{ min: 0.01, step: 0.1 }}
+                    inputProps={{ min: 0.01, step: 0.1, max: heroStack }}
                     value={raiseAmount}
-                    onChange={(e) => setRaiseAmount(Number(e.target.value) || 0.2)}
+                    onChange={(e) => setRaiseAmount(Math.min(Number(e.target.value) || 0.2, heroStack))}
                     sx={{ width: 72, '& .MuiInputBase-input': { py: 0.75, px: 1, fontSize: '0.875rem' } }}
                   />
+                  <Typography variant="caption" sx={{ color: '#888', whiteSpace: 'nowrap' }}>{formatMoney(heroStack)}</Typography>
                 </>
               ) : (
                 <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">

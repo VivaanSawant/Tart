@@ -81,6 +81,12 @@ export default function TableSimulatorView({
   const costToCall = state?.cost_to_call ?? 0
   const canCheck = costToCall <= 0
 
+  // Stack tracking
+  const playerStacks = state?.player_stacks ?? {}
+  const allInPlayers = state?.all_in_players ?? []
+  const heroStack = heroSeat != null ? Number(playerStacks[String(heroSeat)] ?? 10) : 10
+  const actorStack = currentActor != null ? Number(playerStacks[String(currentActor)] ?? 10) : 10
+
   const loadState = async () => {
     const data = await fetchTableState()
     if (data) { setState(data); setError(null) }
@@ -93,22 +99,28 @@ export default function TableSimulatorView({
     return () => clearInterval(interval)
   }, [])
 
+  // Only auto-set raise when hand/street changes — not on every poll
+  const lastAutoSetRef = useRef('')
   useEffect(() => {
-    if (potInfo?.recommendation !== 'raise') return
-    const suggested = potInfo?.suggested_raise
-    if (suggested != null) {
-      const val = Number(suggested)
-      if (!Number.isNaN(val) && val > 0) setRaiseAmount(val)
-      return
+    const key = `${state?.hand_number}_${street}`
+    if (key === lastAutoSetRef.current) return // already set for this street
+    lastAutoSetRef.current = key
+
+    const stk = heroStack
+    if (potInfo?.recommendation === 'raise' && potInfo?.suggested_raise != null) {
+      const val = Number(potInfo.suggested_raise)
+      if (!Number.isNaN(val) && val > 0) { setRaiseAmount(Math.min(val, stk)); return }
     }
     const potBefore = potInfo?.pot_before_call
     const toCall = potInfo?.to_call ?? 0
+    let amt = 0.4
     if (potBefore != null && Number(potBefore) > 0) {
-      setRaiseAmount(Math.max(0.2, 0.5 * Number(potBefore)))
+      amt = Math.max(0.2, 0.5 * Number(potBefore))
     } else if (toCall > 0) {
-      setRaiseAmount(Math.max(0.4, toCall + 0.2))
+      amt = Math.max(0.4, toCall + 0.2)
     }
-  }, [potInfo?.recommendation, potInfo?.suggested_raise, potInfo?.pot_before_call, potInfo?.to_call])
+    setRaiseAmount(Math.min(amt, stk))
+  }, [state?.hand_number, street, potInfo?.recommendation, potInfo?.suggested_raise, potInfo?.pot_before_call, potInfo?.to_call, heroStack])
 
   const handleAction = useCallback(
     async (action, amount = 0, isHeroActing = false) => {
@@ -217,7 +229,12 @@ export default function TableSimulatorView({
       if (cmd.amount != null && cmd.amount > 0) { amount = cmd.amount }
       else { setVoiceError('Could not parse raise amount — say e.g. "raise 1 dollar"'); return }
     }
-    else if (action === 'allin') { action = 'raise'; amount = 999 }
+    else if (action === 'allin') {
+      const s = stateRef.current
+      const stacks = s?.player_stacks ?? {}
+      const actStack = s?.current_actor != null ? Number(stacks[String(s.current_actor)] ?? 10) : 10
+      action = 'raise'; amount = actStack
+    }
     setVoiceStatus(`Voice → Seat ${actor}: ${action.toUpperCase()} ${amount > 0 ? formatMoney(amount) : ''}`)
     // Use handleActionRef so hero voice moves are logged in the MoveLog
     if (handleActionRef.current) {
@@ -355,6 +372,8 @@ export default function TableSimulatorView({
             const isBB = seat === state.bb_seat
             const bet = state.player_bets_this_street?.[String(seat)] ?? 0
             const isHero = seat === heroSeat
+            const stack = Number(playerStacks[String(seat)] ?? 10)
+            const isAllIn = allInPlayers.includes(seat)
 
             return (
               <Paper
@@ -367,11 +386,15 @@ export default function TableSimulatorView({
                   Seat {seat}
                   {isHero && <Chip label="YOU" size="small" color="success" sx={{ ml: 0.5, height: 18, fontSize: '0.7rem' }} />}
                 </Typography>
+                <Typography sx={{ fontSize: '0.75rem', color: stack <= 1 ? '#e74c3c' : '#2ecc71', fontWeight: 700, mt: 0.25 }}>
+                  {formatMoney(stack)}
+                </Typography>
                 <Stack direction="row" spacing={0.5} sx={{ mt: 0.5 }}>
                   {isDealer && <Chip label="D" size="small" sx={{ bgcolor: '#3498db', color: '#fff', height: 20, fontSize: '0.7rem' }} />}
                   {isSB && <Chip label="SB" size="small" sx={{ bgcolor: '#9b59b6', color: '#fff', height: 20, fontSize: '0.7rem' }} />}
                   {isBB && <Chip label="BB" size="small" sx={{ bgcolor: '#e67e22', color: '#fff', height: 20, fontSize: '0.7rem' }} />}
                   {isCurrent && <Chip label="→" size="small" sx={{ bgcolor: '#2ecc71', color: '#1a1a2e', height: 20, fontSize: '0.7rem' }} />}
+                  {isAllIn && <Chip label="ALL-IN" size="small" sx={{ bgcolor: '#e74c3c', color: '#fff', height: 20, fontSize: '0.7rem', fontWeight: 700 }} />}
                 </Stack>
                 {bet > 0 && <Typography sx={{ fontSize: '0.8rem', color: '#f1c40f', mt: 0.5 }}>{formatMoney(bet)}</Typography>}
                 {heroSeat == null && (
@@ -425,24 +448,25 @@ export default function TableSimulatorView({
                     </Button>
                   )}
                   {costToCall > 0 && (
-                    <Button size="small" variant="contained" sx={btnSx} onClick={() => handleAction('call', costToCall, true)}>
-                      Call {formatMoney(costToCall)}
+                    <Button size="small" variant="contained" sx={btnSx} onClick={() => handleAction('call', Math.min(costToCall, heroStack), true)}>
+                      Call {formatMoney(Math.min(costToCall, heroStack))}
                     </Button>
                   )}
                   <Button size="small" variant="contained" sx={btnSx} onClick={() => handleAction('fold', 0, true)}>
                     Fold
                   </Button>
-                  <Button size="small" variant="contained" sx={btnSx} onClick={() => handleAction('raise', raiseAmount, true)}>
-                    Raise
+                  <Button size="small" variant="contained" sx={btnSx} onClick={() => handleAction('raise', Math.min(raiseAmount, heroStack), true)}>
+                    {raiseAmount >= heroStack ? 'All-in' : 'Raise'}
                   </Button>
                   <TextField
                     type="number"
                     size="small"
-                    inputProps={{ min: 0.01, step: 0.1 }}
+                    inputProps={{ min: 0.01, step: 0.1, max: heroStack }}
                     value={raiseAmount}
-                    onChange={(e) => setRaiseAmount(Number(e.target.value) || 0.2)}
+                    onChange={(e) => setRaiseAmount(Math.min(Number(e.target.value) || 0.2, heroStack))}
                     sx={{ width: 68, '& input': { py: 0.5, px: 0.75, fontSize: '0.78rem' } }}
                   />
+                  <Typography variant="caption" sx={{ color: '#888', whiteSpace: 'nowrap' }}>{formatMoney(heroStack)}</Typography>
                 </>
               ) : (
                 <>
@@ -453,22 +477,22 @@ export default function TableSimulatorView({
                     </Button>
                   )}
                   {costToCall > 0 && (
-                    <Button size="small" variant="contained" sx={btnSx} onClick={() => handleAction('call', costToCall, false)}>
-                      Call {formatMoney(costToCall)}
+                    <Button size="small" variant="contained" sx={btnSx} onClick={() => handleAction('call', Math.min(costToCall, actorStack), false)}>
+                      Call {formatMoney(Math.min(costToCall, actorStack))}
                     </Button>
                   )}
                   <Button size="small" variant="contained" sx={btnSx} onClick={() => handleAction('fold', 0, false)}>
                     Fold
                   </Button>
-                  <Button size="small" variant="contained" sx={btnSx} onClick={() => handleAction('raise', raiseAmount, false)}>
-                    Raise
+                  <Button size="small" variant="contained" sx={btnSx} onClick={() => handleAction('raise', Math.min(raiseAmount, actorStack), false)}>
+                    {raiseAmount >= actorStack ? 'All-in' : 'Raise'}
                   </Button>
                   <TextField
                     type="number"
                     size="small"
-                    inputProps={{ min: 0.01, step: 0.1 }}
+                    inputProps={{ min: 0.01, step: 0.1, max: actorStack }}
                     value={raiseAmount}
-                    onChange={(e) => setRaiseAmount(Number(e.target.value) || 0.2)}
+                    onChange={(e) => setRaiseAmount(Math.min(Number(e.target.value) || 0.2, actorStack))}
                     sx={{ width: 68, '& input': { py: 0.5, px: 0.75, fontSize: '0.78rem' } }}
                   />
                 </>
