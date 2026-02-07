@@ -28,10 +28,10 @@ export async function clearHand() {
   return jsonFetch('/api/clear', { method: 'POST' })
 }
 
-export async function confirmBetting(street, opponent, hero) {
+export async function confirmBetting(action, amount = 0) {
   return jsonFetch('/api/confirm_betting', {
     method: 'POST',
-    body: JSON.stringify({ street, opponent, hero }),
+    body: JSON.stringify({ action, amount }),
   })
 }
 
