@@ -320,8 +320,8 @@ export default function TableSimulatorView({
       // overlapping chunks both capture the same spoken command.
       const lastCmd = { key: '', time: 0 }
       const DEDUP_MS = 4000 // ignore duplicate command within 4 seconds
-      const CHUNK_MS = 5000 // each chunk records for 5 seconds
-      const STAGGER_MS = 2500 // lane B starts 2.5s after lane A
+      const CHUNK_MS = 3000 // each chunk records for 3 seconds (faster response)
+      const STAGGER_MS = 1500 // lane B starts 1.5s after lane A
 
       const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm'
 
