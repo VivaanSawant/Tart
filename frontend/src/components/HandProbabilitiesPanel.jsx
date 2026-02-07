@@ -17,17 +17,14 @@ const HAND_ORDER = [
   'High Card',
 ]
 
-const HAND_COLORS = {
-  'Royal Flush': '#FFD700',
-  'Straight Flush': '#FF6347',
-  'Four of a Kind': '#FF4500',
-  'Full House': '#FF8C00',
-  'Flush': '#1E90FF',
-  'Straight': '#32CD32',
-  'Three of a Kind': '#9370DB',
-  'Two Pair': '#20B2AA',
-  'Pair': '#87CEEB',
-  'High Card': '#A9A9A9',
+// Index of best hand already made (first hand with ~100% probability), or -1 if none
+function getCurrentHandIndex(probabilities) {
+  if (!probabilities) return -1
+  const idx = HAND_ORDER.findIndex((hand) => {
+    const pct = probabilities[hand]
+    return pct != null && pct >= 99.99
+  })
+  return idx
 }
 
 function formatPct(val) {
@@ -74,9 +71,13 @@ export default function HandProbabilitiesPanel({ probabilities, stage, holeCount
   }
 
   const stageLabel = stage ? stage.charAt(0).toUpperCase() + stage.slice(1) : ''
+  const currentHandIndex = getCurrentHandIndex(probabilities)
 
-  // Scale bars relative to the largest probability
-  const maxProb = Math.max(...HAND_ORDER.map((h) => probabilities[h] || 0), 0.01)
+  // Scale bars relative to the largest probability (excluding hands already made for visual scale)
+  const maxProb = Math.max(
+    ...HAND_ORDER.map((h, i) => (i <= currentHandIndex ? 0 : probabilities[h] || 0)),
+    0.01
+  )
 
   return (
     <Box>
@@ -93,10 +94,21 @@ export default function HandProbabilitiesPanel({ probabilities, stage, holeCount
       </Typography>
 
       <Stack spacing={0.4}>
-        {HAND_ORDER.map((hand) => {
+        {HAND_ORDER.map((hand, index) => {
           const pct = probabilities[hand] || 0
+          const isCurrentHand = index === currentHandIndex
+          const isOutdated = currentHandIndex >= 0 && index > currentHandIndex
+
+          const textColor = isCurrentHand
+            ? '#2ecc71'
+            : isOutdated
+              ? '#666'
+              : '#b0b0b0'
+          const barColor = isCurrentHand ? '#2ecc71' : isOutdated ? '#444' : '#888'
+          const opacity = isOutdated ? 0.6 : 1
+
           return (
-            <Box key={hand}>
+            <Box key={hand} sx={{ opacity }}>
               <Box
                 sx={{
                   display: 'flex',
@@ -107,17 +119,17 @@ export default function HandProbabilitiesPanel({ probabilities, stage, holeCount
                 <Typography
                   sx={{
                     fontSize: '0.7rem',
-                    color: HAND_COLORS[hand] || '#ccc',
-                    fontWeight: 500,
+                    color: textColor,
+                    fontWeight: isCurrentHand ? 600 : 500,
                     lineHeight: 1.4,
                   }}
                 >
                   {hand}
                 </Typography>
                 <Typography
-                  sx={{ fontSize: '0.7rem', color: '#eee', fontWeight: 600, lineHeight: 1.4 }}
+                  sx={{ fontSize: '0.7rem', color: isOutdated ? '#555' : '#eee', fontWeight: 600, lineHeight: 1.4 }}
                 >
-                  {formatPct(pct)}
+                  {(pct >= 99.99 ? '—' : formatPct(pct))}
                 </Typography>
               </Box>
               <LinearProgress
@@ -128,7 +140,7 @@ export default function HandProbabilitiesPanel({ probabilities, stage, holeCount
                   borderRadius: 2,
                   bgcolor: 'rgba(255,255,255,0.08)',
                   '& .MuiLinearProgress-bar': {
-                    bgcolor: HAND_COLORS[hand] || '#888',
+                    bgcolor: barColor,
                     borderRadius: 2,
                   },
                 }}

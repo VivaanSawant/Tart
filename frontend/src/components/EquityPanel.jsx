@@ -74,7 +74,7 @@ export default function EquityPanel({
 
   return (
     <Box>
-      <Typography variant="h6" gutterBottom>Win probability &amp; bet advice</Typography>
+      <Typography variant="h6" gutterBottom sx={{ fontSize: '0.85rem' }}>Win probability &amp; bet advice</Typography>
       <Typography variant="body2" sx={{ mb: 2 }}>{message}</Typography>
 
       <Stack spacing={1.75} sx={{ mb: 2.5 }}>
