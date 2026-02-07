@@ -26,6 +26,7 @@ import CameraSelector from './components/CameraSelector'
 import EquityPanel from './components/EquityPanel'
 import LandingPage from './components/LandingPage'
 import MoveLog, { getPlayerProfile } from './components/MoveLog'
+import CoachChat from './components/CoachChat'
 import OpponentProfiles from './components/OpponentProfiles'
 import HandProbabilitiesPanel from './components/HandProbabilitiesPanel'
 import PotOddsPanel from './components/PotOddsPanel'
@@ -195,11 +196,18 @@ function App() {
 
         {/* Tab content */}
         {activeTab === 'movelog' ? (
-          <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', py: 2 }}>
-            <Stack spacing={2}>
-              <OpponentProfiles />
-              <MoveLog moves={moveLog} />
-            </Stack>
+          <Box sx={{ flex: 1, minHeight: 0, display: 'flex', gap: 2, py: 2, overflow: 'hidden' }}>
+            {/* Left: Move Log + Opponent Profiles (scrollable) */}
+            <Box sx={{ flex: 1, minWidth: 0, overflowY: 'auto' }}>
+              <Stack spacing={2}>
+                <OpponentProfiles />
+                <MoveLog moves={moveLog} />
+              </Stack>
+            </Box>
+            {/* Right: Coach Chat (fixed height, always visible) */}
+            <Box sx={{ width: 360, flexShrink: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+              <CoachChat profile={playerProfile} moves={moveLog} />
+            </Box>
           </Box>
         ) : activeTab === 'bots' ? (
           moveLog.length === 0 ? (
