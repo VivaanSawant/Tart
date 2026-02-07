@@ -893,6 +893,120 @@ def api_transcribe_chunk():
                 pass
 
 
+@app.route("/api/coach/chat", methods=["POST"])
+def api_coach_chat():
+    """
+    Poker coaching chatbot powered by Dedalus Labs LLM.
+    Accepts { "messages": [...], "profile": {...}, "moves": [...] }.
+    messages: conversation history (role/content pairs from the frontend).
+    profile: player stats summary (aggression, adherence, etc.).
+    moves: raw move log array so the LLM can reference specific hands.
+    Returns { "ok": true, "reply": "..." }.
+    """
+    try:
+        from dedalus_client import chat_completion
+    except ImportError as e:
+        return jsonify({"ok": False, "error": f"Dedalus client unavailable: {e}"}), 500
+
+    data = request.get_json() or {}
+    user_messages = data.get("messages", [])
+    profile = data.get("profile") or {}
+    moves = data.get("moves") or []
+
+    if not user_messages:
+        return jsonify({"ok": False, "error": "No messages provided"}), 400
+
+    # ── Build a rich system prompt with the player's data ──────────────────
+    system_parts = [
+        "You are an expert poker coach AI embedded in a live poker training app.",
+        "Your job is to help the player deeply understand their play style, spot leaks, ",
+        "and give actionable advice to improve. Be specific — reference their actual stats ",
+        "and moves when possible. Use poker terminology naturally.",
+        "Keep answers concise but insightful (2-4 paragraphs max unless they ask for detail).",
+        "Be encouraging but honest about weaknesses.",
+        "",
+        "=== PLAYER PROFILE ===",
+    ]
+
+    if profile:
+        system_parts.append(f"Total moves this session: {profile.get('totalMoves', '?')}")
+        system_parts.append(f"Optimal play rate (adherence): {profile.get('adherence', '?')}%")
+        system_parts.append(f"Aggression index (0-100): {profile.get('aggression', '?')}")
+        system_parts.append(f"Average equity at decisions: {profile.get('avgEquity', '?')}")
+        by_action = profile.get("byAction", {})
+        if by_action:
+            system_parts.append(
+                f"Action breakdown — Calls: {by_action.get('call', 0)}, "
+                f"Raises: {by_action.get('raise', 0)}, "
+                f"Folds: {by_action.get('fold', 0)}, "
+                f"Checks: {by_action.get('check', 0)}"
+            )
+        system_parts.append(f"Bluff count: {profile.get('bluffCount', 0)}")
+        system_parts.append(f"Bluff rate (% of raises): {profile.get('bluffRate', 0)}%")
+        bluff_by_street = profile.get("bluffByStreet", {})
+        if any(bluff_by_street.values()):
+            system_parts.append(
+                f"Bluffs by street — Preflop: {bluff_by_street.get('preflop', 0)}, "
+                f"Flop: {bluff_by_street.get('flop', 0)}, "
+                f"Turn: {bluff_by_street.get('turn', 0)}, "
+                f"River: {bluff_by_street.get('river', 0)}"
+            )
+        avg_eq_bluff = profile.get("avgEquityWhenBluffing")
+        if avg_eq_bluff is not None:
+            system_parts.append(f"Average equity when bluffing: {avg_eq_bluff:.1f}%")
+        system_parts.append(f"River accuracy: {profile.get('riverPct', '?')}%")
+        system_parts.append(f"Fold gap (vs optimal): {profile.get('foldGap', '?')}%")
+        avg_raise_diff = profile.get("avgRaiseDiff")
+        if avg_raise_diff is not None:
+            system_parts.append(f"Avg raise diff vs optimal: ${avg_raise_diff:+.2f}")
+        by_street = profile.get("byStreet", {})
+        street_correct = profile.get("streetCorrect", {})
+        if by_street:
+            for st in ["preflop", "flop", "turn", "river"]:
+                t = by_street.get(st, 0)
+                c = street_correct.get(st, 0)
+                if t > 0:
+                    system_parts.append(f"  {st}: {c}/{t} optimal ({round(c/t*100)}%)")
+
+    # Include the last N raw moves for concrete references
+    if moves:
+        system_parts.append("")
+        system_parts.append("=== RECENT MOVE LOG (last 30 moves, newest first) ===")
+        recent = moves[-30:][::-1]
+        for i, m in enumerate(recent, 1):
+            line = (
+                f"#{m.get('handNumber', '?')} {m.get('street', '?')}: "
+                f"Action={m.get('action', '?')}"
+            )
+            if m.get("amount"):
+                line += f" ${m['amount']:.2f}"
+            line += f" | Optimal={m.get('optimalMove', '?')}"
+            if m.get("suggestedRaise") is not None:
+                line += f" (sug. raise ${m['suggestedRaise']:.2f})"
+            if m.get("equity") is not None:
+                line += f" | Equity={m['equity']:.1f}%"
+            system_parts.append(line)
+
+    system_prompt = "\n".join(system_parts)
+
+    # ── Compose the full messages list for the LLM ─────────────────────────
+    llm_messages = [{"role": "system", "content": system_prompt}]
+    for msg in user_messages:
+        role = msg.get("role", "user")
+        content = msg.get("content", "")
+        if role in ("user", "assistant") and content:
+            llm_messages.append({"role": role, "content": content})
+
+    try:
+        reply = chat_completion(llm_messages, temperature=0.7, max_tokens=1024)
+        return jsonify({"ok": True, "reply": reply})
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    except Exception as e:
+        print(f"[COACH CHAT ERROR] {e}")
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 @app.route("/api/clear", methods=["POST"])
 def api_clear():
     """Full hand restart: clear all cards, reset table sim, clear card state file."""

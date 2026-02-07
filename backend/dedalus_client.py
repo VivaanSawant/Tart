@@ -102,6 +102,61 @@ def transcribe_audio(
     return text
 
 
+DEDALUS_CHAT_URL = "https://api.dedaluslabs.ai/v1/chat/completions"
+DEDALUS_CHAT_MODEL = "openai/gpt-4o"
+
+
+def chat_completion(
+    messages: list[dict],
+    *,
+    api_key: str | None = None,
+    model: str = DEDALUS_CHAT_MODEL,
+    temperature: float = 0.7,
+    max_tokens: int = 1024,
+) -> str:
+    """
+    Send a chat completion request to Dedalus Labs API.
+
+    Args:
+        messages: List of {"role": "system"|"user"|"assistant", "content": "..."} dicts.
+        api_key: Dedalus API key (or set DEDALUS_API_KEY env var).
+        model: Model ID (default "openai/gpt-4o").
+        temperature: Sampling temperature.
+        max_tokens: Max tokens in the response.
+
+    Returns:
+        The assistant's response text.
+    """
+    key = api_key or os.environ.get("DEDALUS_API_KEY")
+    if not key:
+        raise ValueError(
+            "DEDALUS_API_KEY not set. Set it in the environment or pass api_key=."
+        )
+
+    payload = {
+        "model": model,
+        "messages": messages,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+    }
+
+    resp = requests.post(
+        DEDALUS_CHAT_URL,
+        headers={
+            "Authorization": f"Bearer {key}",
+            "Content-Type": "application/json",
+        },
+        json=payload,
+        timeout=60,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    choices = data.get("choices", [])
+    if not choices:
+        return ""
+    return choices[0].get("message", {}).get("content", "").strip()
+
+
 if __name__ == "__main__":
     import sys
     if len(sys.argv) < 2:
