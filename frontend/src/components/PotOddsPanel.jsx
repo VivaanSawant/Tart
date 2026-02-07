@@ -1,15 +1,19 @@
+import Box from '@mui/material/Box'
+import Paper from '@mui/material/Paper'
+import Typography from '@mui/material/Typography'
+
 function formatNumber(val) {
-  if (val === null || val === undefined || Number.isNaN(Number(val))) {
-    return '—'
-  }
+  if (val === null || val === undefined || Number.isNaN(Number(val))) return '—'
   return Number(val).toFixed(1)
 }
 
 function formatMoney(val) {
-  if (val === null || val === undefined || Number.isNaN(Number(val))) {
-    return '—'
-  }
+  if (val === null || val === undefined || Number.isNaN(Number(val))) return '—'
   return '$' + Number(val).toFixed(2)
+}
+
+const recColor = {
+  call: '#2ecc71', fold: '#e74c3c', raise: '#f39c12', check: '#3498db', no_bet: '#888',
 }
 
 export default function PotOddsPanel({
@@ -20,65 +24,82 @@ export default function PotOddsPanel({
 }) {
   const recommendation = potInfo?.recommendation || 'no_bet'
   const recommendationText =
-    recommendation === 'call'
-      ? 'CALL'
-      : recommendation === 'fold'
-        ? 'FOLD'
-        : recommendation === 'raise'
-          ? 'RAISE'
-          : recommendation === 'check'
-            ? 'CHECK'
-            : '—'
+    recommendation === 'call' ? 'CALL'
+    : recommendation === 'fold' ? 'FOLD'
+    : recommendation === 'raise' ? 'RAISE'
+    : recommendation === 'check' ? 'CHECK'
+    : '—'
   const toCall = potInfo?.to_call ?? 0
   const hasBetToCall = toCall > 0
 
   return (
-    <div className="section">
-      <h2>Pot &amp; odds (from table)</h2>
+    <Box>
+      <Typography variant="h6" gutterBottom>Pot &amp; odds (from table)</Typography>
 
-      <div className="game-info">
-        <span>Blinds: {formatMoney(smallBlind)} / {formatMoney(bigBlind)}</span>
-        <span>Buy-in: {formatMoney(buyIn)}</span>
-      </div>
+      <Typography variant="body2" sx={{ mb: 1.5 }}>
+        Blinds: {formatMoney(smallBlind)} / {formatMoney(bigBlind)} &nbsp;|&nbsp; Buy-in: {formatMoney(buyIn)}
+      </Typography>
 
-      <div className="bet-amount-display">
+      <Paper
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          p: 2,
+          mb: 2,
+          background: 'linear-gradient(135deg, #252525 0%, #1e1e1e 100%)',
+          border: '2px solid #3498db',
+        }}
+      >
         {hasBetToCall ? (
           <>
-            <span className="bet-amount-label">Amount to call</span>
-            <span className="bet-amount-value">{formatMoney(toCall)}</span>
+            <Typography sx={{ fontSize: '0.9rem', color: '#a0a0c0', textTransform: 'uppercase', letterSpacing: '0.05em', mb: 0.5 }}>
+              Amount to call
+            </Typography>
+            <Typography sx={{ fontSize: '1.75rem', fontWeight: 700, color: '#2ecc71' }}>
+              {formatMoney(toCall)}
+            </Typography>
           </>
         ) : (
           <>
-            <span className="bet-amount-label">No bet to call</span>
-            <span className="bet-amount-value bet-amount-check">Check or bet</span>
+            <Typography sx={{ fontSize: '0.9rem', color: '#a0a0c0', textTransform: 'uppercase', letterSpacing: '0.05em', mb: 0.5 }}>
+              No bet to call
+            </Typography>
+            <Typography sx={{ fontSize: '1.1rem', color: '#3498db' }}>
+              Check or bet
+            </Typography>
           </>
         )}
-      </div>
+      </Paper>
 
-      <div className="pot-odds-result">
+      <Paper sx={{ p: 1.5, bgcolor: '#1e1e1e' }}>
         {hasBetToCall && (
           <>
-            <p className="line">
+            <Typography sx={{ fontSize: '0.9rem', mb: 0.5 }}>
               Pot (before your call): <strong>{formatMoney(potInfo?.pot_before_call)}</strong>
-            </p>
-            <p className="line">
+            </Typography>
+            <Typography sx={{ fontSize: '0.9rem', mb: 0.5 }}>
               To call: <strong>{formatMoney(potInfo?.to_call)}</strong>
-            </p>
-            <p className="line pot-odds-formula">
+            </Typography>
+            <Typography sx={{ fontSize: '0.9rem', mb: 0.5 }}>
               Pot odds: risk {formatMoney(potInfo?.to_call)} to win{' '}
               {formatMoney((potInfo?.pot_before_call ?? 0) + (potInfo?.to_call ?? 0))} → need{' '}
               <strong>{formatNumber(potInfo?.required_equity_pct)}%</strong> equity to call
-            </p>
+            </Typography>
           </>
         )}
-        <p className="recommendation-row">
+        <Typography sx={{ mt: 1, fontSize: '1rem', fontWeight: 600 }}>
           Recommendation:{' '}
-          <span className={`recommendation ${recommendation}`}>{recommendationText}</span>
-        </p>
-        <p className="status" style={{ marginTop: '6px' }}>
-          {potInfo?.recommendation_reason || ''}
-        </p>
-      </div>
-    </div>
+          <Box component="span" sx={{ color: recColor[recommendation] || '#888' }}>
+            {recommendationText}
+          </Box>
+        </Typography>
+        {potInfo?.recommendation_reason && (
+          <Typography variant="body2" sx={{ mt: 0.75, color: '#888' }}>
+            {potInfo.recommendation_reason}
+          </Typography>
+        )}
+      </Paper>
+    </Box>
   )
 }

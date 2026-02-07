@@ -10,61 +10,15 @@
   margin-bottom: 40px;
 }
 
-.move-log-hero h1,
-.move-log-title {
+.move-log-hero h1 {
   font-size: 2rem;
   font-weight: 800;
   letter-spacing: -0.03em;
-  background: linear-gradient(135deg, #eee 0%, #3498db 50%, #2ecc71 100%);
-  background-size: 200% auto;
+  background: linear-gradient(135deg, #eee 0%, #3498db 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   margin: 0 0 8px 0;
-  animation: move-log-title-shine 4s ease-in-out infinite;
-}
-
-@keyframes move-log-title-shine {
-  0%, 100% { background-position: 0% center; }
-  50% { background-position: 100% center; }
-}
-
-.move-log-meta {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 12px;
-  margin-top: 12px;
-}
-
-.move-log-meta-item {
-  font-size: 0.85rem;
-  color: #666;
-}
-
-.move-log-streak {
-  font-size: 0.85rem;
-  font-weight: 700;
-  padding: 4px 10px;
-  border-radius: 20px;
-  animation: streak-pulse 2s ease-in-out infinite;
-}
-
-.move-log-streak.optimal {
-  background: linear-gradient(135deg, rgba(46, 204, 113, 0.3), rgba(46, 204, 113, 0.15));
-  color: #2ecc71;
-  border: 1px solid rgba(46, 204, 113, 0.5);
-}
-
-.move-log-streak.deviate {
-  background: linear-gradient(135deg, rgba(231, 76, 60, 0.3), rgba(231, 76, 60, 0.15));
-  color: #e74c3c;
-  border: 1px solid rgba(231, 76, 60, 0.5);
-}
-
-@keyframes streak-pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.9; transform: scale(1.02); }
 }
 
 .move-log-subtitle,
@@ -107,64 +61,6 @@
   margin: -4px 0 12px 0;
 }
 
-/* Live Insights */
-.insights-section {
-  animation: insights-fade 0.6s ease-out;
-}
-
-@keyframes insights-fade {
-  from { opacity: 0; transform: translateY(-8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.insights-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 14px;
-}
-
-.insight-card {
-  background: linear-gradient(145deg, #16213e 0%, #1a2744 100%);
-  border: 1px solid #2a2a4a;
-  border-radius: 14px;
-  padding: 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  transition: transform 0.2s, box-shadow 0.2s;
-  position: relative;
-  overflow: hidden;
-}
-
-.insight-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, #3498db, #2ecc71);
-  opacity: 0.7;
-}
-
-.insight-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 12px 28px rgba(52, 152, 219, 0.2);
-}
-
-.insight-value {
-  font-size: 1.75rem;
-  font-weight: 800;
-  color: #2ecc71;
-  text-shadow: 0 0 20px rgba(46, 204, 113, 0.4);
-}
-
-.insight-label {
-  font-size: 0.78rem;
-  color: #888;
-  line-height: 1.35;
-}
-
 /* Player Profile */
 .profile-section .profile-card {
   background: linear-gradient(145deg, #16213e 0%, #0f1729 100%);
@@ -185,13 +81,13 @@
 }
 
 .profile-avatar {
-  grid-row: 1 / -1;
   position: relative;
   width: 100px;
   height: 100px;
   display: flex;
   align-items: center;
   justify-content: center;
+  margin: 0 auto 8px;
 }
 
 .profile-avatar-emoji {
@@ -206,8 +102,8 @@
   background: conic-gradient(
     #2ecc71 0deg,
     #2ecc71 calc(var(--adherence) * 3.6deg),
-    #2a2a4a calc(var(--adherence) * 3.6deg),
-    #2a2a4a 360deg
+    #3a3a3a calc(var(--adherence) * 3.6deg),
+    #3a3a3a 360deg
   );
   padding: 8px;
   box-sizing: border-box;
@@ -216,40 +112,16 @@
 .profile-adherence-inner {
   position: absolute;
   inset: 8px;
-  background: #16213e;
+  background: #2a2a2a;
   border-radius: 50%;
 }
 
-.profile-stats {
-  display: flex;
-  gap: 24px;
-  flex-wrap: wrap;
-}
-
-.profile-stat {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.profile-stat-value {
-  font-size: 1.75rem;
-  font-weight: 800;
-  color: #2ecc71;
-}
-
-.profile-stat-label {
-  font-size: 0.8rem;
-  color: #888;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
+/* ===== Tendency bars ===== */
 .profile-tendencies {
-  grid-column: 2;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  margin-top: 8px;
 }
 
 .tendency-bar {
@@ -262,12 +134,13 @@
   width: 50px;
   font-size: 0.9rem;
   color: #a0a0c0;
+  text-transform: capitalize;
 }
 
 .tendency-track {
   flex: 1;
   height: 10px;
-  background: #1a1a2e;
+  background: #222;
   border-radius: 5px;
   overflow: hidden;
 }
@@ -289,21 +162,13 @@
   min-width: 24px;
 }
 
-/* Comparison Chart */
-.comparison-chart {
-  background: #16213e;
-  border: 1px solid #2a2a4a;
-  border-radius: 14px;
-  padding: 20px;
-}
-
+/* ===== Comparison chart ===== */
 .comparison-row {
   display: flex;
   align-items: center;
   gap: 16px;
   margin-bottom: 14px;
 }
-
 .comparison-row:last-child { margin-bottom: 0; }
 
 .comparison-label {
@@ -335,7 +200,7 @@
 .comparison-bar-track {
   flex: 1;
   height: 20px;
-  background: #0f1729;
+  background: #1e1e1e;
   border-radius: 6px;
   overflow: hidden;
 }
@@ -362,15 +227,15 @@
   min-width: 20px;
 }
 
-/* Equity Heatmap */
+/* ===== Equity heatmap ===== */
 .equity-heatmap {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(36px, 1fr));
   gap: 6px;
   padding: 16px;
-  background: #0f1729;
+  background: #1e1e1e;
   border-radius: 12px;
-  border: 1px solid #2a2a4a;
+  border: 1px solid #3a3a3a;
 }
 
 .heatmap-cell-wrap {
@@ -396,25 +261,11 @@
   border-radius: 6px;
 }
 
-.heatmap-tooltip {
-  margin-top: 10px;
-  padding: 10px 14px;
-  background: #16213e;
-  border-radius: 8px;
-  font-size: 0.9rem;
-  color: #a0a0c0;
-  border: 1px solid #2a2a4a;
-}
-
-/* Street Performance */
+/* ===== Street performance ===== */
 .street-heatmap {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  padding: 20px;
-  background: #16213e;
-  border: 1px solid #2a2a4a;
-  border-radius: 14px;
 }
 
 .street-cell {
@@ -433,7 +284,7 @@
 .street-bar-wrap {
   flex: 1;
   height: 24px;
-  background: #0f1729;
+  background: #1e1e1e;
   border-radius: 8px;
   overflow: hidden;
 }
@@ -479,15 +330,11 @@
   line-height: 1.5;
 }
 
-/* Raise Comparison */
+/* ===== Raise comparison ===== */
 .raise-comparison-chart {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 20px;
-  background: #16213e;
-  border: 1px solid #2a2a4a;
-  border-radius: 14px;
 }
 
 .raise-row {
@@ -518,11 +365,11 @@
   min-width: 100px;
 }
 
-/* Equity Trend */
+/* ===== Equity trend ===== */
 .equity-trend {
   padding: 24px;
-  background: linear-gradient(180deg, #0f1729 0%, #16213e 100%);
-  border: 1px solid #2a2a4a;
+  background: linear-gradient(180deg, #1e1e1e 0%, #2a2a2a 100%);
+  border: 1px solid #3a3a3a;
   border-radius: 14px;
 }
 
@@ -590,11 +437,6 @@
   font-size: 0.9rem;
 }
 
-.move-log-time {
-  font-size: 0.75rem;
-  color: #666;
-}
-
 .move-log-street {
   text-transform: capitalize;
   color: #3498db;
@@ -646,12 +488,6 @@
 .move-log-optimal strong {
   text-transform: uppercase;
   color: #3498db;
-}
-
-.move-log-pot,
-.move-log-tocall {
-  font-size: 0.85rem;
-  color: #888;
 }
 
 .move-log-detail {

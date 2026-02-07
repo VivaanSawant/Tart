@@ -1,29 +1,4 @@
-.landing {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100vh;
-  background: #000;
-  overflow: hidden;
-}
-
-.landing-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  transform: scale(0.65);
-  transform-origin: center center;
-}
-
-.landing-inline {
-  display: flex;
-  align-items: center;
-  gap: 28px;
-  cursor: pointer;
-  outline: none;
-}
-
+/* ASCII art styling — kept as custom CSS */
 .landing-ascii {
   font-family: 'Roboto Mono', monospace;
   color: #fff;
@@ -46,14 +21,4 @@
 
 .spade-ascii:hover {
   transform: scale(1.10);
-}
-
-.landing-click-hint {
-  font-family: 'Roboto Mono', monospace;
-  color: #888;
-  font-size: 1.54rem;
-  margin: 48px 0 0 15px;
-  letter-spacing: 0.05em;
-  user-select: none;
-  text-align: center;
 }

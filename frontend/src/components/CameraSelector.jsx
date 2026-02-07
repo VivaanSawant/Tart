@@ -1,4 +1,12 @@
 import { useEffect, useState } from 'react'
+import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
+import Chip from '@mui/material/Chip'
+import Collapse from '@mui/material/Collapse'
+import List from '@mui/material/List'
+import ListItemButton from '@mui/material/ListItemButton'
+import ListItemText from '@mui/material/ListItemText'
+import Typography from '@mui/material/Typography'
 import { listCameras, switchCamera } from '../api/backend'
 
 export default function CameraSelector() {
@@ -19,59 +27,51 @@ export default function CameraSelector() {
     }
   }
 
-  useEffect(() => {
-    if (open) {
-      refresh()
-    }
-  }, [open])
+  useEffect(() => { if (open) refresh() }, [open])
 
   const handleSwitch = async (idx) => {
     const res = await switchCamera(idx)
-    if (res && res.ok) {
-      setCurrentIndex(idx)
-      setError(null)
-    }
+    if (res && res.ok) { setCurrentIndex(idx); setError(null) }
   }
 
   return (
-    <div className="camera-selector">
-      <button
-        type="button"
-        className="btn btn-camera"
-        onClick={() => setOpen((prev) => !prev)}
+    <Box>
+      <Button
+        variant="contained"
+        size="small"
+        onClick={() => setOpen((p) => !p)}
+        fullWidth
       >
         {open ? 'Close camera list' : 'Switch camera'}
-      </button>
+      </Button>
 
-      {open && (
-        <div className="camera-list">
-          {loading && <p className="status">Scanning cameras...</p>}
-          {error && <p className="status" style={{ color: '#e74c3c' }}>{error}</p>}
+      <Collapse in={open}>
+        <Box sx={{ mt: 1, bgcolor: '#2a2a2a', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1 }}>
+          {loading && <Typography variant="caption" sx={{ color: '#888' }}>Scanning cameras...</Typography>}
+          {error && <Typography variant="caption" color="error">{error}</Typography>}
           {cameras.length === 0 && !loading && (
-            <p className="status">No cameras found.</p>
+            <Typography variant="caption" sx={{ color: '#888' }}>No cameras found.</Typography>
           )}
-          {cameras.map((cam) => (
-            <button
-              key={cam.index}
-              type="button"
-              className={`camera-option ${cam.index === currentIndex ? 'active' : ''}`}
-              onClick={() => handleSwitch(cam.index)}
-            >
-              {cam.name}
-              {cam.index === currentIndex && ' (active)'}
-            </button>
-          ))}
-          <button
-            type="button"
-            className="btn btn-camera"
-            style={{ marginTop: '8px' }}
-            onClick={refresh}
-            disabled={loading}
-          >
+          <List dense disablePadding>
+            {cameras.map((cam) => (
+              <ListItemButton
+                key={cam.index}
+                selected={cam.index === currentIndex}
+                onClick={() => handleSwitch(cam.index)}
+                sx={{ borderRadius: 1, mb: 0.5 }}
+              >
+                <ListItemText primary={cam.name} primaryTypographyProps={{ fontSize: '0.85rem' }} />
+                {cam.index === currentIndex && (
+                  <Chip label="active" size="small" color="success" sx={{ height: 20, fontSize: '0.7rem' }} />
+                )}
+              </ListItemButton>
+            ))}
+          </List>
+          <Button size="small" variant="outlined" onClick={refresh} disabled={loading} sx={{ mt: 0.5 }} fullWidth>
             Refresh list
-          </button>
-        </div>
-      )}
-    </div>
+          </Button>
+        </Box>
+      </Collapse>
+    </Box>
   )
 }

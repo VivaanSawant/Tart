@@ -1,4 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import Alert from '@mui/material/Alert'
+import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
+import Chip from '@mui/material/Chip'
+import Paper from '@mui/material/Paper'
+import Stack from '@mui/material/Stack'
+import TextField from '@mui/material/TextField'
+import Typography from '@mui/material/Typography'
+import MicIcon from '@mui/icons-material/Mic'
+import StopIcon from '@mui/icons-material/Stop'
+import CircularProgress from '@mui/material/CircularProgress'
+
 import { fetchTableState, tableAction, tableReset, tableSetHero, transcribeChunk } from '../api/backend'
 import { getCardImage } from '../utils/cardImages'
 import './TableSimulator.css'
@@ -34,7 +47,6 @@ function spokenToNumber(str) {
   const s = str.toLowerCase().trim()
   const direct = parseFloat(s)
   if (!isNaN(direct)) return direct
-
   let total = 0
   const words = s.split(/\s+/)
   for (const w of words) {
@@ -50,12 +62,9 @@ function spokenToNumber(str) {
 function parseVoiceCommand(transcript) {
   if (!transcript) return null
   const t = transcript.toLowerCase().trim()
-
   if (/\bfold\b/.test(t)) return { action: 'fold' }
   if (/\bcheck\b/.test(t)) return { action: 'check' }
   if (/\ball[\s-]?in\b/.test(t)) return { action: 'allin' }
-
-  // "call 20 cents" / "call fifty" / "call 1.50" / "call" (no amount)
   const callMatch = t.match(/\bcall(?:\s+(.+))?/)
   if (callMatch) {
     if (!callMatch[1]) return { action: 'call', amount: null }
@@ -64,10 +73,8 @@ function parseVoiceCommand(transcript) {
     const numPart = rest.replace(/\bcents?\b|\bdollars?\b/g, '').trim()
     let amount = spokenToNumber(numPart)
     if (amount != null && isCents) amount = amount / 100
-    return { action: 'call', amount: amount }
+    return { action: 'call', amount }
   }
-
-  // "raise 50" / "raise to 100" / "raise 1 dollar"
   const raiseMatch = t.match(/\braise\s+(?:to\s+)?(.+)/)
   if (raiseMatch) {
     const rest = raiseMatch[1]
@@ -75,9 +82,8 @@ function parseVoiceCommand(transcript) {
     const numPart = rest.replace(/\bcents?\b|\bdollars?\b/g, '').trim()
     let amount = spokenToNumber(numPart)
     if (amount != null && isCents) amount = amount / 100
-    return { action: 'raise', amount: amount }
+    return { action: 'raise', amount }
   }
-
   return null
 }
 
@@ -103,7 +109,6 @@ export default function TableSimulatorView({
   const flopCount = flopCards.length
   const hasTurn = turnCard != null
   const hasRiver = riverCard != null
-  // Voice state
   const [listening, setListening] = useState(false)
   const [transcript, setTranscript] = useState('')
   const [voiceStatus, setVoiceStatus] = useState('')
@@ -111,12 +116,10 @@ export default function TableSimulatorView({
   const mediaRecorderRef = useRef(null)
   const streamRef = useRef(null)
   const stoppedRef = useRef(false)
-  // We store the latest state in a ref so the voice callback always has the freshest value
   const stateRef = useRef(null)
   stateRef.current = state
 
   const heroSeat = state?.hero_seat ?? null
-  const heroPosition = state?.hero_position ?? null
   const currentActor = state?.current_actor ?? null
   const isMyTurn = heroSeat != null && currentActor === heroSeat
   const street = state?.street ?? 'preflop'
@@ -132,12 +135,8 @@ export default function TableSimulatorView({
 
   const loadState = async () => {
     const data = await fetchTableState()
-    if (data) {
-      setState(data)
-      setError(null)
-    } else {
-      setError('Could not load table state')
-    }
+    if (data) { setState(data); setError(null) }
+    else setError('Could not load table state')
   }
 
   useEffect(() => {
@@ -146,7 +145,6 @@ export default function TableSimulatorView({
     return () => clearInterval(interval)
   }, [])
 
-  // Whenever a raise is recommended, auto-fill the raise amount input with suggested_raise
   useEffect(() => {
     if (potInfo?.recommendation !== 'raise') return
     const suggested = potInfo?.suggested_raise
@@ -155,12 +153,10 @@ export default function TableSimulatorView({
       if (!Number.isNaN(val) && val > 0) setRaiseAmount(val)
       return
     }
-    // Fallback: half pot or min raise above cost to call
     const potBefore = potInfo?.pot_before_call
     const toCall = potInfo?.to_call ?? 0
     if (potBefore != null && Number(potBefore) > 0) {
-      const halfPot = 0.5 * Number(potBefore)
-      setRaiseAmount(Math.max(0.2, halfPot))
+      setRaiseAmount(Math.max(0.2, 0.5 * Number(potBefore)))
     } else if (toCall > 0) {
       setRaiseAmount(Math.max(0.4, toCall + 0.2))
     }
@@ -181,15 +177,11 @@ export default function TableSimulatorView({
         setError(null)
         if (isHeroActing && onHeroMove) {
           onHeroMove({
-            handNumber: state.hand_number,
-            street,
-            action,
-            amount,
+            handNumber: state.hand_number, street, action, amount,
             equity: equityForStreet,
             optimalMove: potInfo?.recommendation ?? 'no_bet',
             suggestedRaise: potInfo?.suggested_raise,
-            pot: state.pot,
-            toCall: potInfo?.to_call,
+            pot: state.pot, toCall: potInfo?.to_call,
           })
         }
       } else {
@@ -208,9 +200,8 @@ export default function TableSimulatorView({
     const onKeyDown = (e) => {
       if (!canAct || !state || state.current_actor == null) return
       if (!isMyTurn) return
-      const key = e.key
       if (e.altKey || e.ctrlKey || e.metaKey) return
-      const action = HERO_KEYS[parseInt(key, 10)]
+      const action = HERO_KEYS[parseInt(e.key, 10)]
       if (action) {
         e.preventDefault()
         const cost = state.cost_to_call ?? 0
@@ -227,22 +218,14 @@ export default function TableSimulatorView({
 
   const handleReset = async () => {
     const res = await tableReset(numPlayers)
-    if (res && res.ok) {
-      setState(res.state)
-      setError(null)
-    } else {
-      setError('Could not reset')
-    }
+    if (res && res.ok) { setState(res.state); setError(null) }
+    else setError('Could not reset')
   }
 
   const handleSetHero = useCallback(async (seat) => {
     const res = await tableSetHero(seat)
-    if (res && res.ok) {
-      setState(res.state)
-      setError(null)
-    } else {
-      setError(res?.error || 'Could not set hero')
-    }
+    if (res && res.ok) { setState(res.state); setError(null) }
+    else setError(res?.error || 'Could not set hero')
   }, [])
 
   /* ---------- voice listening ---------- */
@@ -259,179 +242,100 @@ export default function TableSimulatorView({
     }
   }, [])
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       stoppedRef.current = true
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(t => t.stop())
-      }
+      if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop())
     }
   }, [])
 
   const executeVoiceCommand = useCallback(async (cmd) => {
     if (!cmd) return
     const s = stateRef.current
-    if (!s || s.current_actor == null) {
-      setVoiceError('No player to act right now')
-      return
-    }
+    if (!s || s.current_actor == null) { setVoiceError('No player to act right now'); return }
     const actor = s.current_actor
     const isHero = s.hero_seat != null && actor === s.hero_seat
     const cost = s.cost_to_call ?? 0
-
     let action = cmd.action
     let amount = 0
-
-    if (action === 'fold') {
-      amount = 0
-    } else if (action === 'check') {
-      if (cost > 0) {
-        setVoiceError(`Cannot check — cost to call is ${formatMoney(cost)}`)
-        return
-      }
-      amount = 0
+    if (action === 'fold') { amount = 0 }
+    else if (action === 'check') {
+      if (cost > 0) { setVoiceError(`Cannot check — cost to call is ${formatMoney(cost)}`); return }
     } else if (action === 'call') {
       amount = cmd.amount != null ? cmd.amount : cost
-      if (amount <= 0) amount = cost  // "call" with no number means call the current bet
-    } else if (action === 'raise') {
-      amount = cmd.amount || 0.2
-    } else if (action === 'allin') {
-      action = 'raise'
-      amount = 999  // large raise = all-in
-    }
-
+      if (amount <= 0) amount = cost
+    } else if (action === 'raise') { amount = cmd.amount || 0.2 }
+    else if (action === 'allin') { action = 'raise'; amount = 999 }
     setVoiceStatus(`Voice → Seat ${actor}: ${action.toUpperCase()} ${amount > 0 ? formatMoney(amount) : ''}`)
-
     const res = await tableAction(actor, action, amount, isHero)
-    if (res && res.ok) {
-      setState(res.state)
-      setError(null)
-    } else {
-      setError(res?.error || 'Invalid action')
-    }
+    if (res && res.ok) { setState(res.state); setError(null) }
+    else setError(res?.error || 'Invalid action')
   }, [])
 
   const startListening = useCallback(async () => {
-    setTranscript('')
-    setVoiceError('')
-    setVoiceStatus('Starting mic…')
-    stoppedRef.current = false
-
+    setTranscript(''); setVoiceError(''); setVoiceStatus('Starting mic…'); stoppedRef.current = false
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      streamRef.current = stream
-      setListening(true)
-      setVoiceStatus('Listening…')
-
+      streamRef.current = stream; setListening(true); setVoiceStatus('Listening…')
       const startChunk = () => {
         if (stoppedRef.current) return
-        const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-          ? 'audio/webm;codecs=opus'
-          : 'audio/webm'
+        const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm'
         const mr = new MediaRecorder(stream, { mimeType })
         const chunks = []
-        mr.ondataavailable = (e) => {
-          if (e.data && e.data.size > 0) chunks.push(e.data)
-        }
+        mr.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data) }
         mr.onstop = async () => {
           if (stoppedRef.current || chunks.length === 0) return
           const blob = new Blob(chunks, { type: mimeType })
-          const kb = (blob.size / 1024).toFixed(1)
-          setVoiceStatus(`Sending ${kb} KB…`)
+          setVoiceStatus(`Sending ${(blob.size / 1024).toFixed(1)} KB…`)
           try {
             const result = await transcribeChunk(blob)
             if (stoppedRef.current) return
             if (result && result.ok && result.text) {
               setTranscript(prev => prev ? prev + ' ' + result.text : result.text)
               setVoiceStatus(`Heard: "${result.text}"`)
-
               const cmd = parseVoiceCommand(result.text)
-              if (cmd) {
-                setVoiceStatus(`Executing: ${cmd.action}${cmd.amount != null ? ' ' + cmd.amount : ''}`)
-                await executeVoiceCommand(cmd)
-                // Don't stop — keep listening for the next player
-              } else {
-                setVoiceStatus(`Heard: "${result.text}" (no command detected — say call/fold/raise/check)`)
-              }
-            } else if (result && !result.ok) {
-              setVoiceError(result.error || 'Transcription failed')
-              setVoiceStatus('Error — see below')
-            } else {
-              setVoiceStatus('Listening… (no speech detected)')
-            }
-          } catch (err) {
-            if (!stoppedRef.current) {
-              setVoiceError(err.message)
-              setVoiceStatus('Error — see below')
-            }
-          }
+              if (cmd) { setVoiceStatus(`Executing: ${cmd.action}${cmd.amount != null ? ' ' + cmd.amount : ''}`); await executeVoiceCommand(cmd) }
+              else setVoiceStatus(`Heard: "${result.text}" (no command detected — say call/fold/raise/check)`)
+            } else if (result && !result.ok) { setVoiceError(result.error || 'Transcription failed'); setVoiceStatus('Error — see below') }
+            else setVoiceStatus('Listening… (no speech detected)')
+          } catch (err) { if (!stoppedRef.current) { setVoiceError(err.message); setVoiceStatus('Error — see below') } }
         }
-        mediaRecorderRef.current = mr
-        mr.start()
-        setTimeout(() => {
-          if (mr.state === 'recording') mr.stop()
-          if (!stoppedRef.current) startChunk()
-        }, 3000)
+        mediaRecorderRef.current = mr; mr.start()
+        setTimeout(() => { if (mr.state === 'recording') mr.stop(); if (!stoppedRef.current) startChunk() }, 3000)
       }
-
       startChunk()
-    } catch (err) {
-      setVoiceError('Mic access denied: ' + err.message)
-      setListening(false)
-    }
+    } catch (err) { setVoiceError('Mic access denied: ' + err.message); setListening(false) }
   }, [executeVoiceCommand])
 
   /* ---------- render ---------- */
   if (!state) {
     return (
-      <div className="table-sim-view">
-        <p className="table-sim-loading">Loading table…</p>
-      </div>
+      <Box className="table-sim-view" sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 5 }}>
+        <CircularProgress />
+      </Box>
     )
   }
 
   const n = state.num_players || 6
   const seatPositions = []
-  // Distribute seats evenly around the rectangle perimeter, starting top-center clockwise
   const L = 5, R = 95, T = 8, B = 92
-  const W = R - L       // 90
-  const H = B - T       // 84
-  const halfW = W / 2   // 45
-  const perim = 2 * (W + H)  // 348
+  const W = R - L, H = B - T, halfW = W / 2
+  const perim = 2 * (W + H)
 
   for (let i = 0; i < n; i++) {
     const d = ((i / n) * perim) % perim
     let x, y
-
-    if (d <= halfW) {
-      // Top edge: center → right
-      x = 50 + d
-      y = T
-    } else if (d <= halfW + H) {
-      // Right edge: top → bottom
-      x = R
-      y = T + (d - halfW)
-    } else if (d <= halfW + H + W) {
-      // Bottom edge: right → left
-      x = R - (d - halfW - H)
-      y = B
-    } else if (d <= halfW + H + W + H) {
-      // Left edge: bottom → top
-      x = L
-      y = B - (d - halfW - H - W)
-    } else {
-      // Top edge: left → center
-      x = L + (d - halfW - H - W - H)
-      y = T
-    }
-
+    if (d <= halfW) { x = 50 + d; y = T }
+    else if (d <= halfW + H) { x = R; y = T + (d - halfW) }
+    else if (d <= halfW + H + W) { x = R - (d - halfW - H); y = B }
+    else if (d <= halfW + H + W + H) { x = L; y = B - (d - halfW - H - W) }
+    else { x = L + (d - halfW - H - W - H); y = T }
     seatPositions.push({ seat: i, x, y })
   }
 
   return (
-    <div className="table-sim-view">
-      {error && <p className="table-sim-error">{error}</p>}
+    <Box className="table-sim-view" sx={{ display: 'flex', flexDirection: 'column', overflow: 'visible' }}>
+      {error && <Alert severity="error" sx={{ mb: 1 }}>{error}</Alert>}
 
       <div className="table-container">
         <div className="table-felt">
@@ -439,30 +343,16 @@ export default function TableSimulatorView({
             <div className="table-info-row">
               <div className="table-pot">Pot {formatMoney(state.pot)}</div>
               {(() => {
-                const eq = hasRiver ? equityRiver
-                  : hasTurn ? equityTurn
-                  : flopCount >= 3 ? equityFlop
-                  : holeCount >= 2 ? equityPreflop
-                  : null
+                const eq = hasRiver ? equityRiver : hasTurn ? equityTurn : flopCount >= 3 ? equityFlop : holeCount >= 2 ? equityPreflop : null
                 if (eq == null) return null
                 const pct = Number(eq)
                 if (Number.isNaN(pct)) return null
                 const color = pct >= 65 ? '#2ecc71' : pct >= 45 ? '#f1c40f' : '#e74c3c'
-                return (
-                  <div className="table-equity" style={{ color }}>
-                    Equity: {pct.toFixed(1)}%
-                  </div>
-                )
+                return <div className="table-equity" style={{ color }}>Equity: {pct.toFixed(1)}%</div>
               })()}
             </div>
             <div className="table-board">
-              {[
-                flopCards[0] || null,
-                flopCards[1] || null,
-                flopCards[2] || null,
-                turnCard,
-                riverCard,
-              ].map((card, i) => {
+              {[flopCards[0] || null, flopCards[1] || null, flopCards[2] || null, turnCard, riverCard].map((card, i) => {
                 const img = card ? getCardImage(card) : null
                 return (
                   <div key={i} className={`board-card-slot${img ? ' board-card-slot--filled' : ''}`}>
@@ -483,31 +373,33 @@ export default function TableSimulatorView({
             const isHero = seat === heroSeat
 
             return (
-              <div
+              <Paper
                 key={seat}
                 className={`seat seat-${seat} ${!inHand ? 'folded' : ''} ${isCurrent ? 'current' : ''} ${isHero ? 'hero' : ''}`}
                 style={{ left: `${x}%`, top: `${y}%`, transform: 'translate(-50%, -50%)' }}
+                sx={{ position: 'absolute', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minWidth: 70, p: '10px 14px' }}
               >
-                <div className="seat-label">
+                <Typography variant="body2" sx={{ fontWeight: 600, color: '#eee', fontSize: '0.95rem' }}>
                   Seat {seat}
-                  {isHero && <span className="hero-badge">YOU</span>}
-                </div>
-                <div className="seat-badges">
-                  {isDealer && <span className="badge dealer">D</span>}
-                  {isSB && <span className="badge sb">SB</span>}
-                  {isBB && <span className="badge bb">BB</span>}
-                  {isCurrent && <span className="badge turn">→</span>}
-                </div>
-                {bet > 0 && <div className="seat-bet">{formatMoney(bet)}</div>}
+                  {isHero && <Chip label="YOU" size="small" color="success" sx={{ ml: 0.5, height: 18, fontSize: '0.7rem' }} />}
+                </Typography>
+                <Stack direction="row" spacing={0.5} sx={{ mt: 0.5 }}>
+                  {isDealer && <Chip label="D" size="small" sx={{ bgcolor: '#3498db', color: '#fff', height: 20, fontSize: '0.7rem' }} />}
+                  {isSB && <Chip label="SB" size="small" sx={{ bgcolor: '#9b59b6', color: '#fff', height: 20, fontSize: '0.7rem' }} />}
+                  {isBB && <Chip label="BB" size="small" sx={{ bgcolor: '#e67e22', color: '#fff', height: 20, fontSize: '0.7rem' }} />}
+                  {isCurrent && <Chip label="→" size="small" sx={{ bgcolor: '#2ecc71', color: '#1a1a2e', height: 20, fontSize: '0.7rem' }} />}
+                </Stack>
+                {bet > 0 && <Typography sx={{ fontSize: '0.8rem', color: '#f1c40f', mt: 0.5 }}>{formatMoney(bet)}</Typography>}
                 {heroSeat == null && (
-                  <button
-                    type="button"
-                    className="btn btn-seat-hero"
+                  <Button
+                    size="small"
+                    variant="contained"
+                    color="success"
                     onClick={(e) => { e.stopPropagation(); handleSetHero(seat) }}
-                    title={`I'm Hero (Seat ${seat})`}
+                    sx={{ mt: 1, fontSize: '0.75rem', py: 0.25, px: 1 }}
                   >
                     I&apos;m Hero
-                  </button>
+                  </Button>
                 )}
                 {isHero && (
                   <div className="hero-hole-cards">
@@ -523,89 +415,93 @@ export default function TableSimulatorView({
                     </div>
                   </div>
                 )}
-              </div>
+              </Paper>
             )
           })}
         </div>
       </div>
 
-      {currentActor != null && (
-        <div className="actions-hud">
-          {isMyTurn && canAct && (
-            <div className="hud-row">
-              {canCheck && (
-                <button type="button" className="btn btn-action btn-check hud-btn" onClick={() => handleAction('check', 0, true)}>
-                  Check
-                </button>
-              )}
-              {costToCall > 0 && (
-                <button type="button" className="btn btn-action btn-call hud-btn" onClick={() => handleAction('call', costToCall, true)}>
-                  Call {formatMoney(costToCall)}
-                </button>
-              )}
-              <button type="button" className="btn btn-action btn-fold hud-btn" onClick={() => handleAction('fold', 0, true)}>
-                Fold
-              </button>
-              <button type="button" className="btn btn-action btn-raise hud-btn" onClick={() => handleAction('raise', raiseAmount, true)}>
-                Raise
-              </button>
-              <input
-                type="number"
-                className="hud-raise-input"
-                min="0.01"
-                step="0.1"
-                value={raiseAmount}
-                onChange={(e) => setRaiseAmount(Number(e.target.value) || 0.2)}
-              />
-            </div>
-          )}
-
-          {!isMyTurn && (
-            <div className="hud-row">
-              <span className="hud-seat-label">Seat {currentActor}</span>
-              {canCheck && (
-                <button type="button" className="btn btn-action btn-sim hud-btn" onClick={() => handleAction('check', 0, false)}>
-                  Check
-                </button>
-              )}
-              {costToCall > 0 && (
-                <button type="button" className="btn btn-action btn-sim hud-btn" onClick={() => handleAction('call', costToCall, false)}>
-                  Call {formatMoney(costToCall)}
-                </button>
-              )}
-              <button type="button" className="btn btn-action btn-sim hud-btn" onClick={() => handleAction('fold', 0, false)}>
-                Fold
-              </button>
-              <button type="button" className="btn btn-action btn-sim hud-btn" onClick={() => handleAction('raise', raiseAmount, false)}>
-                Raise
-              </button>
-              <input
-                type="number"
-                className="hud-raise-input"
-                min="0.01"
-                step="0.1"
-                value={raiseAmount}
-                onChange={(e) => setRaiseAmount(Number(e.target.value) || 0.2)}
-              />
-            </div>
-          )}
-
-          <button
-            type="button"
-            className={`btn hud-btn ${listening ? 'btn-voice-stop' : 'btn-voice-listen'}`}
-            onClick={listening ? stopListening : startListening}
-          >
-            {listening ? '⏹ Stop' : '🎤 Voice'}
-          </button>
-
-          {listening && (
-            <div className="hud-voice-line">
-              {voiceStatus || 'Listening…'}
-            </div>
-          )}
-        </div>
-      )}
-
-    </div>
+      {/* Actions HUD — portalled into the nav bar slot */}
+      {currentActor != null && (() => {
+        const slot = document.getElementById('actions-hud-slot')
+        if (!slot) return null
+        return createPortal(
+          <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', flexWrap: 'nowrap' }}>
+            {isMyTurn && canAct ? (
+              <>
+                {canCheck && (
+                  <Button size="small" variant="contained" sx={{ bgcolor: '#3498db', '&:hover': { bgcolor: '#2980b9' } }} onClick={() => handleAction('check', 0, true)}>
+                    Check
+                  </Button>
+                )}
+                {costToCall > 0 && (
+                  <Button size="small" variant="contained" color="success" onClick={() => handleAction('call', costToCall, true)}>
+                    Call {formatMoney(costToCall)}
+                  </Button>
+                )}
+                <Button size="small" variant="contained" color="error" onClick={() => handleAction('fold', 0, true)}>
+                  Fold
+                </Button>
+                <Button size="small" variant="contained" sx={{ bgcolor: '#f1c40f', color: '#1a1a2e', '&:hover': { bgcolor: '#f39c12' } }} onClick={() => handleAction('raise', raiseAmount, true)}>
+                  Raise
+                </Button>
+                <TextField
+                  type="number"
+                  size="small"
+                  inputProps={{ min: 0.01, step: 0.1 }}
+                  value={raiseAmount}
+                  onChange={(e) => setRaiseAmount(Number(e.target.value) || 0.2)}
+                  sx={{ width: 68, '& input': { py: 0.5, px: 0.75, fontSize: '0.78rem' } }}
+                />
+              </>
+            ) : (
+              <>
+                <Typography variant="caption" sx={{ mr: 0.25, whiteSpace: 'nowrap' }}>Seat {currentActor}</Typography>
+                {canCheck && (
+                  <Button size="small" variant="contained" sx={{ bgcolor: '#555', '&:hover': { bgcolor: '#666' } }} onClick={() => handleAction('check', 0, false)}>
+                    Check
+                  </Button>
+                )}
+                {costToCall > 0 && (
+                  <Button size="small" variant="contained" sx={{ bgcolor: '#555', '&:hover': { bgcolor: '#666' } }} onClick={() => handleAction('call', costToCall, false)}>
+                    Call {formatMoney(costToCall)}
+                  </Button>
+                )}
+                <Button size="small" variant="contained" sx={{ bgcolor: '#555', '&:hover': { bgcolor: '#666' } }} onClick={() => handleAction('fold', 0, false)}>
+                  Fold
+                </Button>
+                <Button size="small" variant="contained" sx={{ bgcolor: '#555', '&:hover': { bgcolor: '#666' } }} onClick={() => handleAction('raise', raiseAmount, false)}>
+                  Raise
+                </Button>
+                <TextField
+                  type="number"
+                  size="small"
+                  inputProps={{ min: 0.01, step: 0.1 }}
+                  value={raiseAmount}
+                  onChange={(e) => setRaiseAmount(Number(e.target.value) || 0.2)}
+                  sx={{ width: 68, '& input': { py: 0.5, px: 0.75, fontSize: '0.78rem' } }}
+                />
+              </>
+            )}
+            <Button
+              size="small"
+              variant="contained"
+              color={listening ? 'error' : 'success'}
+              startIcon={listening ? <StopIcon /> : <MicIcon />}
+              onClick={listening ? stopListening : startListening}
+              sx={listening ? { animation: 'pulse-red 1.2s ease-in-out infinite' } : {}}
+            >
+              {listening ? 'Stop' : 'Voice'}
+            </Button>
+            {listening && (
+              <Typography variant="caption" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 180 }}>
+                {voiceStatus || 'Listening…'}
+              </Typography>
+            )}
+          </Stack>,
+          slot
+        )
+      })()}
+    </Box>
   )
 }
