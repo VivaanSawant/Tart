@@ -1,8 +1,10 @@
 .table-sim-view {
-  padding: 20px;
+  padding: 10px 20px;
   width: 100%;
   max-width: 1600px;
   margin: 0 auto;
+  max-height: 100%;
+  overflow: hidden;
 }
 
 .table-sim-loading {
@@ -61,18 +63,18 @@
 .table-container {
   position: relative;
   width: 100%;
-  min-height: 600px;
-  margin-bottom: 24px;
+  margin-bottom: 0;
 }
 
 .table-felt {
   position: relative;
   width: 100%;
-  aspect-ratio: 1.6;
+  aspect-ratio: 2.6;
   max-width: 1170px;
+  max-height: calc(100vh - 140px);
   margin: 0 auto;
   background: linear-gradient(135deg, #1a5f2a 0%, #0d3d1a 100%);
-  border-radius: 50%;
+  border-radius: 80px;
   border: 10px solid #8b4513;
   box-shadow:
     inset 0 0 80px rgba(0, 0, 0, 0.3),
@@ -272,19 +274,15 @@
 }
 
 .actions-hud {
-  position: fixed;
-  bottom: 16px;
-  left: 16px;
-  z-index: 900;
   background: rgba(22, 33, 62, 0.95);
   border-radius: 10px;
   padding: 10px 14px;
   border: 1px solid #2a2a4a;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+  margin-top: 10px;
 }
 
 .hud-row {

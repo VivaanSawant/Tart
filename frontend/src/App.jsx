@@ -134,11 +134,6 @@ function App() {
         </button>
       </nav>
 
-      <div className="video-pip">
-        <CameraSelector />
-        <VideoFeed src="/video_feed" />
-      </div>
-
       {activeTab === 'info' ? (
         <div className="info-tab">
           <div className="info-tab-content">
@@ -216,6 +211,14 @@ function App() {
           />
         </div>
       )}
+
+      <div className="bottom-bar">
+        <div className="bottom-bar-spacer" />
+        <div className="video-section">
+          <CameraSelector />
+          <VideoFeed src="/video_feed" />
+        </div>
+      </div>
     </div>
     </CameraPermission>
   )

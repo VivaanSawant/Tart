@@ -393,23 +393,44 @@ export default function TableSimulatorView({
 
   const n = state.num_players || 6
   const seatPositions = []
+  // Distribute seats evenly around the rectangle perimeter, starting top-center clockwise
+  const L = 5, R = 95, T = 8, B = 92
+  const W = R - L       // 90
+  const H = B - T       // 84
+  const halfW = W / 2   // 45
+  const perim = 2 * (W + H)  // 348
+
   for (let i = 0; i < n; i++) {
-    const angle = (i / n) * 2 * Math.PI - Math.PI / 2
-    seatPositions.push({
-      seat: i,
-      x: 50 + 42 * Math.cos(angle),
-      y: 50 + 38 * Math.sin(angle),
-    })
+    const d = ((i / n) * perim) % perim
+    let x, y
+
+    if (d <= halfW) {
+      // Top edge: center → right
+      x = 50 + d
+      y = T
+    } else if (d <= halfW + H) {
+      // Right edge: top → bottom
+      x = R
+      y = T + (d - halfW)
+    } else if (d <= halfW + H + W) {
+      // Bottom edge: right → left
+      x = R - (d - halfW - H)
+      y = B
+    } else if (d <= halfW + H + W + H) {
+      // Left edge: bottom → top
+      x = L
+      y = B - (d - halfW - H - W)
+    } else {
+      // Top edge: left → center
+      x = L + (d - halfW - H - W - H)
+      y = T
+    }
+
+    seatPositions.push({ seat: i, x, y })
   }
 
   return (
     <div className="table-sim-view">
-      {heroPosition && (
-        <div className="hero-position-badge">
-          You are: <strong>{heroPosition}</strong>
-        </div>
-      )}
-
       {error && <p className="table-sim-error">{error}</p>}
 
       <div className="table-container">
