@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { fetchTableState, tableAction, tableReset } from '../api/backend'
+import { fetchTableState, tableAction, tableReset, tableSetHero } from '../api/backend'
 import { getCardImage } from '../utils/cardImages'
 import './TableSimulator.css'
 
@@ -22,15 +22,23 @@ function cardsNeededForStreet(street) {
 
 export default function TableSimulatorView({
   holeCount = 0,
-  flopCount = 0,
-  hasTurn = false,
-  hasRiver = false,
+  flopCards = [],
+  turnCard = null,
+  riverCard = null,
   potInfo = null,
+  equityPreflop = null,
+  equityFlop = null,
+  equityTurn = null,
+  equityRiver = null,
 }) {
   const [state, setState] = useState(null)
   const [raiseAmount, setRaiseAmount] = useState(0.4)
   const [numPlayers, setNumPlayers] = useState(6)
   const [error, setError] = useState(null)
+
+  const flopCount = flopCards.length
+  const hasTurn = turnCard != null
+  const hasRiver = riverCard != null
 
   const heroSeat = state?.hero_seat ?? null
   const heroPosition = state?.hero_position ?? null
@@ -198,7 +206,25 @@ export default function TableSimulatorView({
       <div className="table-container">
         <div className="table-felt">
           <div className="table-center">
-            <div className="table-pot">Pot {formatMoney(state.pot)}</div>
+            <div className="table-info-row">
+              <div className="table-pot">Pot {formatMoney(state.pot)}</div>
+              {(() => {
+                const eq = hasRiver ? equityRiver
+                  : hasTurn ? equityTurn
+                  : flopCount >= 3 ? equityFlop
+                  : holeCount >= 2 ? equityPreflop
+                  : null
+                if (eq == null) return null
+                const pct = Number(eq)
+                if (Number.isNaN(pct)) return null
+                const color = pct >= 65 ? '#2ecc71' : pct >= 45 ? '#f1c40f' : '#e74c3c'
+                return (
+                  <div className="table-equity" style={{ color }}>
+                    Equity: {pct.toFixed(1)}%
+                  </div>
+                )
+              })()}
+            </div>
             <div className="table-board">
               {[
                 flopCards[0] || null,

@@ -1,7 +1,7 @@
 .table-sim-view {
   padding: 20px;
   width: 100%;
-  max-width: 1200px;
+  max-width: 1600px;
   margin: 0 auto;
 }
 
@@ -61,7 +61,7 @@
 .table-container {
   position: relative;
   width: 100%;
-  min-height: 500px;
+  min-height: 600px;
   margin-bottom: 24px;
 }
 
@@ -69,7 +69,7 @@
   position: relative;
   width: 100%;
   aspect-ratio: 1.6;
-  max-width: 900px;
+  max-width: 1170px;
   margin: 0 auto;
   background: linear-gradient(135deg, #1a5f2a 0%, #0d3d1a 100%);
   border-radius: 50%;
@@ -90,25 +90,39 @@
   gap: 10px;
 }
 
+.table-info-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  justify-content: center;
+}
+
 .table-pot {
-  font-size: 1.6rem;
+  font-size: 1.8rem;
   font-weight: 700;
   color: #f1c40f;
   text-shadow: 0 0 10px rgba(241, 196, 0, 0.5);
   white-space: nowrap;
 }
 
+.table-equity {
+  font-size: 1.4rem;
+  font-weight: 700;
+  white-space: nowrap;
+  text-shadow: 0 0 8px rgba(0, 0, 0, 0.4);
+}
+
 .table-board {
   display: flex;
-  gap: 8px;
+  gap: 14px;
   justify-content: center;
 }
 
 .board-card-slot {
-  width: 48px;
-  height: 68px;
+  width: 151px;
+  height: 214px;
   border: 2px solid rgba(255, 255, 255, 0.35);
-  border-radius: 6px;
+  border-radius: 9px;
   background: transparent;
   overflow: hidden;
 }

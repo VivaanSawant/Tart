@@ -89,6 +89,14 @@
   padding-top: 40px;
 }
 
+.below-fold-content {
+  max-width: 700px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
 .layout {
   display: grid;
   grid-template-columns: 1fr 360px;
