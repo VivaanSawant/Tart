@@ -94,6 +94,7 @@ export default function TableSimulatorView({
   equityTurn = null,
   equityRiver = null,
   onHeroMove = null,
+  botMode = false,
 }) {
   const [state, setState] = useState(null)
   const [raiseAmount, setRaiseAmount] = useState(0.4)
@@ -539,7 +540,7 @@ export default function TableSimulatorView({
             </div>
           )}
 
-          {!isMyTurn && (
+          {!isMyTurn && !botMode && (
             <div className="hud-row">
               <span className="hud-seat-label">Seat {currentActor}</span>
               {canCheck && (
@@ -566,6 +567,11 @@ export default function TableSimulatorView({
                 value={raiseAmount}
                 onChange={(e) => setRaiseAmount(Number(e.target.value) || 0.2)}
               />
+            </div>
+          )}
+          {!isMyTurn && botMode && (
+            <div className="hud-row hud-bot-thinking">
+              <span className="hud-seat-label">Bot (Seat {currentActor}) thinking…</span>
             </div>
           )}
 

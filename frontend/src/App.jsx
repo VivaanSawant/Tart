@@ -7,6 +7,7 @@ import {
   setPlayStyle,
   tableReset,
 } from './api/backend'
+import BotMatchView from './components/BotMatchView'
 import CameraPermission from './components/CameraPermission'
 import CameraSelector from './components/CameraSelector'
 import EquityPanel from './components/EquityPanel'
@@ -45,7 +46,7 @@ function App() {
 
   const handleFetchState = async () => {
     const data = await fetchState()
-    if (!data) return
+    if (!data || data.ok === false) return
     setGameState({
       holeCards: data.hole_cards || [],
       availableCards: data.available_cards || [],
@@ -126,17 +127,35 @@ function App() {
         >
           Move Log
         </button>
+        <button
+          type="button"
+          className={`nav-tab ${activeTab === 'bots' ? 'active' : ''}`}
+          onClick={() => setActiveTab('bots')}
+        >
+          VS Bots
+        </button>
         <button type="button" className="btn btn-reset nav-new-table" onClick={handleNewTable}>
           New table
         </button>
       </nav>
 
-      <div className="video-pip">
-        <CameraSelector />
-        <VideoFeed src="/video_feed" />
-      </div>
+      {activeTab !== 'bots' && (
+        <div className="video-pip">
+          <CameraSelector />
+          <VideoFeed src="/video_feed" />
+        </div>
+      )}
 
-      {activeTab === 'info' ? (
+      {activeTab === 'bots' ? (
+        <BotMatchView
+          moveLog={moveLog}
+          gameState={gameState}
+          onFetchState={handleFetchState}
+          onHeroMove={handleHeroMove}
+          onPlayStyleChange={handlePlayStyleChange}
+          onClear={handleClear}
+        />
+      ) : activeTab === 'info' ? (
         <div className="info-tab">
           <div className="info-tab-content">
             <section className="play-style-section panel">

@@ -1,0 +1,136 @@
+.bot-match-view {
+  min-height: 60vh;
+  padding: 24px;
+}
+
+.bot-match-gate {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 48px 32px;
+  text-align: center;
+  background: linear-gradient(145deg, #16213e 0%, #0f1729 100%);
+  border: 2px solid #2a2a4a;
+  border-radius: 20px;
+}
+
+.bot-match-gate-icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+}
+
+.bot-match-gate h2 {
+  margin: 0 0 16px 0;
+  font-size: 1.5rem;
+  color: #eee;
+}
+
+.bot-match-gate p {
+  margin: 0 0 12px 0;
+  color: #a0a0c0;
+  line-height: 1.6;
+}
+
+.bot-match-gate-progress {
+  margin-top: 20px !important;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #3498db !important;
+}
+
+.bot-match-seat-picker {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 40px 32px;
+  text-align: center;
+}
+
+.bot-match-seat-picker h2 {
+  margin: 0 0 12px 0;
+  font-size: 1.75rem;
+  color: #eee;
+}
+
+.bot-match-seat-hint {
+  color: #888;
+  margin-bottom: 28px;
+  line-height: 1.5;
+}
+
+.bot-match-pick-error {
+  margin-top: 16px;
+  color: #e74c3c;
+  font-size: 0.95rem;
+}
+
+.bot-match-seat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.bot-seat-btn {
+  padding: 20px 24px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.bot-seat-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(52, 152, 219, 0.4);
+}
+
+.bot-match-active .bot-match-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+  padding: 12px 20px;
+  background: #16213e;
+  border-radius: 12px;
+  border: 1px solid #2a2a4a;
+}
+
+.bot-match-badge {
+  font-weight: 700;
+  color: #f1c40f;
+  font-size: 1rem;
+}
+
+.bot-match-aggression {
+  color: #888;
+  font-size: 0.9rem;
+}
+
+.btn-end-bot {
+  margin-left: auto;
+  padding: 8px 16px;
+  background: #e74c3c;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.btn-end-bot:hover {
+  background: #c0392b;
+}
+
+.bot-video-pip {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  width: 280px;
+  z-index: 900;
+}
+
+.hud-bot-thinking {
+  color: #f1c40f;
+}

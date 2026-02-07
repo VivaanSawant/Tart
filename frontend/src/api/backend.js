@@ -3,10 +3,11 @@ async function jsonFetch(url, options = {}) {
     headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
     ...options,
   })
+  const data = await res.json().catch(() => ({}))
   if (!res.ok) {
-    return null
+    return { ok: false, error: data?.error || res.statusText || 'Request failed' }
   }
-  return res.json()
+  return data
 }
 
 export async function fetchState() {
@@ -69,6 +70,21 @@ export async function tableSetHero(seat) {
     method: 'POST',
     body: JSON.stringify({ seat }),
   })
+}
+
+export async function startBotMatch(heroSeat, playerAggression) {
+  return jsonFetch('/api/table/start_bot_match', {
+    method: 'POST',
+    body: JSON.stringify({ hero_seat: heroSeat, player_aggression: playerAggression }),
+  })
+}
+
+export async function botAct() {
+  return jsonFetch('/api/table/bot_act', { method: 'POST' })
+}
+
+export async function endBotMatch() {
+  return jsonFetch('/api/table/end_bot_match', { method: 'POST' })
 }
 
 export async function tableReset(numPlayers = 6) {

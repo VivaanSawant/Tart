@@ -23,6 +23,7 @@ from ultralytics import YOLO
 import card_logger
 import equitypredict
 import pot_calc
+from bot_players import assign_bot_hole_cards, decide_bot_action
 from table_simulator import (
     CHECK,
     CALL,
@@ -303,6 +304,9 @@ shared_state = {
     "camera_index": 0,
     "camera_error": None,
     "play_style": "neutral",  # "aggressive" | "neutral" | "conservative" — equity thresholds
+    "bot_mode": False,
+    "player_aggression": 50,  # 0-100, used for inverse bot aggression
+    "bot_hole_cards": {},  # { hand_number: { seat: [c1, c2], ... } }
 }
 stop_event = threading.Event()
 
@@ -350,6 +354,9 @@ def _pot_state_from_table(table_state, to_call: float):
 
 
 def _table_state_to_dict(s) -> dict:
+    ts = _get_table_sim()
+    with shared_state["lock"]:
+        bot_mode = shared_state.get("bot_mode", False)
     return {
         "dealer_seat": s.dealer_seat,
         "sb_seat": s.sb_seat,
@@ -361,10 +368,11 @@ def _table_state_to_dict(s) -> dict:
         "players_in_hand": list(s.players_in_hand),
         "player_bets_this_street": {str(k): v for k, v in s.player_bets_this_street.items()},
         "hand_number": s.hand_number,
-        "hero_seat": _get_table_sim().config.hero_seat,
-        "hero_position": _get_table_sim().get_hero_position(),
-        "num_players": _get_table_sim().config.num_players,
-        "cost_to_call": _get_table_sim().cost_to_call(s.current_actor) if s.current_actor is not None else 0,
+        "hero_seat": ts.config.hero_seat,
+        "hero_position": ts.get_hero_position(),
+        "num_players": ts.config.num_players,
+        "cost_to_call": ts.cost_to_call(s.current_actor) if s.current_actor is not None else 0,
+        "bot_mode": bot_mode,
     }
 
 
@@ -716,6 +724,7 @@ def api_clear():
         shared_state["pot_state"] = pot_calc.PotState()
         shared_state["current_street"] = "flop"
         shared_state["betting_confirmed_up_to"] = None
+        shared_state["bot_mode"] = False
     table_sim = TableSimulator(
         config=TableConfig(num_players=6, hero_seat=None),
         on_hand_ended=_on_hand_ended,
@@ -815,6 +824,118 @@ def api_table_action():
     return jsonify({"ok": True, "state": _table_state_to_dict(result)})
 
 
+@app.route("/api/table/start_bot_match", methods=["POST"])
+def api_start_bot_match():
+    """Start a bot match: reset table, set hero seat, enable bot mode. Clears cards so user must re-scan."""
+    global table_sim
+    data = request.get_json(force=True, silent=True) or {}
+    seat = data.get("hero_seat")
+    player_aggression = float(data.get("player_aggression") or 50)
+    player_aggression = max(0, min(100, player_aggression))
+    if seat is None or not isinstance(seat, int) or seat < 0:
+        return jsonify({"ok": False, "error": "missing or invalid 'hero_seat'"}), 400
+    table_sim = TableSimulator(
+        config=TableConfig(num_players=6, hero_seat=int(seat)),
+        on_hand_ended=_on_hand_ended,
+    )
+    table_sim.set_hero_seat(int(seat))  # ensure hero is set
+    with shared_state["lock"]:
+        shared_state["bot_mode"] = True
+        shared_state["player_aggression"] = player_aggression
+        shared_state["bot_hole_cards"] = {}
+        shared_state["locked_cards"].clear()
+        shared_state["flop_cards"].clear()
+        shared_state["turn_card"] = None
+        shared_state["river_card"] = None
+        shared_state["last_unknown_set"] = None
+        shared_state["betting_confirmed_up_to"] = None
+    clear_hand_state_file()
+    equitypredict.clear_cache()
+    return jsonify({"ok": True, "state": _table_state_to_dict(table_sim.get_state())})
+
+
+@app.route("/api/table/bot_act", methods=["POST"])
+def api_bot_act():
+    """If it's a bot's turn, compute and execute action. Returns new state."""
+    with shared_state["lock"]:
+        if not shared_state.get("bot_mode", False):
+            return jsonify({"ok": False, "error": "not in bot mode"}), 400
+        player_aggression = shared_state.get("player_aggression", 50)
+    ts = _get_table_sim()
+    state = ts.get_state()
+    hero_seat = ts.config.hero_seat
+    actor = state.current_actor
+    if actor is None or actor == hero_seat:
+        return jsonify({"ok": True, "state": _table_state_to_dict(state)})
+    if actor not in state.players_in_hand:
+        return jsonify({"ok": True, "state": _table_state_to_dict(state)})
+
+    # Assign bot hole cards for this hand if not yet done (exclude hero + board)
+    # Only assign when hero has scanned so we can exclude their cards
+    with shared_state["lock"]:
+        hole = list(shared_state["locked_cards"])
+        flop = list(shared_state["flop_cards"])
+        turn = shared_state["turn_card"]
+        river = shared_state["river_card"]
+        bot_cards = shared_state.get("bot_hole_cards") or {}
+    used = set(hole) | set(flop) | ({turn} if turn else set()) | ({river} if river else set())
+    hand_num = state.hand_number
+    if hand_num not in bot_cards and len(hole) >= 2:
+        bot_cards[hand_num] = assign_bot_hole_cards(
+            hero_seat, state.players_in_hand, used, hand_num
+        )
+        with shared_state["lock"]:
+            shared_state["bot_hole_cards"] = bot_cards
+
+    to_call = ts.cost_to_call(actor)
+    bot_aggression = 100 - player_aggression
+    pot_adapter = _pot_state_from_table(state, to_call)
+
+    # Compute bot equity when we have bot hole cards + hero + board
+    equity_pct = None
+    bot_hole = bot_cards.get(hand_num, {}).get(actor)
+    if bot_hole and len(bot_hole) == 2:
+        if state.street == "preflop":
+            equity_pct = equitypredict.equity_preflop(bot_hole, num_players=max(2, len(state.players_in_hand)), num_trials=200)
+        elif len(flop) >= 3:
+            eq_flop, eq_turn, eq_river = equitypredict.compute_equities(
+                bot_hole, flop, turn, river, num_players=max(2, len(state.players_in_hand))
+            )
+            equity_pct = pot_calc.get_equity_for_street(
+                state.street, eq_flop, eq_turn, eq_river, equity_preflop=None
+            )
+
+    action, amount = decide_bot_action(
+        actor,
+        state.street,
+        state.pot,
+        to_call,
+        state.current_bet,
+        bot_aggression,
+        equity_pct=equity_pct,
+        pot_state_adapter=pot_adapter,
+    )
+    result = ts.record_action(actor, action, amount, is_hero_acting=False)
+    if result is None:
+        return jsonify({"ok": False, "error": "invalid bot action"}), 500
+    return jsonify({"ok": True, "state": _table_state_to_dict(result)})
+
+
+@app.route("/api/table/end_bot_match", methods=["POST"])
+def api_end_bot_match():
+    """Exit bot mode, reset table."""
+    global table_sim
+    with shared_state["lock"]:
+        shared_state["bot_mode"] = False
+    table_sim = TableSimulator(
+        config=TableConfig(num_players=6, hero_seat=None),
+        on_hand_ended=_on_hand_ended,
+    )
+    clear_hand_state_file()
+    equitypredict.clear_cache()
+    return jsonify({"ok": True, "state": _table_state_to_dict(table_sim.get_state())})
+
+
 @app.route("/api/table/set_hero", methods=["POST"])
 def api_table_set_hero():
     """Set hero seat. Call when user clicks 'I'm Hero' on a seat."""
@@ -836,6 +957,8 @@ def api_table_reset():
     data = request.get_json(force=True, silent=True) or {}
     num_players = int(data.get("num_players") or 6)
     num_players = max(2, min(10, num_players))
+    with shared_state["lock"]:
+        shared_state["bot_mode"] = False
     table_sim = TableSimulator(
         config=TableConfig(num_players=num_players, hero_seat=None),
         on_hand_ended=_on_hand_ended,
