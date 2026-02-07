@@ -104,23 +104,24 @@ function App() {
   return (
     <CameraPermission>
     <div className="app">
-      <div className="main-area">
+      <div className="video-pip">
         <CameraSelector />
-        <div className="video-wrap">
-          <VideoFeed src="/video_feed" />
-        </div>
+        <VideoFeed src="/video_feed" />
+      </div>
+
+      <div className="table-hero">
+        <TableSimulatorView
+          holeCount={gameState.holeCards.length}
+          flopCards={gameState.flopCards}
+          turnCard={gameState.turnCard}
+          riverCard={gameState.riverCard}
+          potInfo={gameState.potInfo}
+        />
       </div>
 
       <div className="below-fold">
         <div className="layout">
           <div className="main-area">
-            <TableSimulatorView
-              holeCount={gameState.holeCards.length}
-              flopCount={gameState.flopCards.length}
-              hasTurn={gameState.turnCard != null}
-              hasRiver={gameState.riverCard != null}
-              potInfo={gameState.potInfo}
-            />
             <CardsPanel
               holeCards={gameState.holeCards}
               availableCards={gameState.availableCards}
