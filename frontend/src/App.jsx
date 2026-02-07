@@ -31,7 +31,7 @@ const SMALL_BLIND = 0.1
 const BIG_BLIND = 0.2
 const BUY_IN = 10
 
-const TAB_VALUES = ['game', 'movelog']
+const TAB_VALUES = ['game', 'movelog', 'bots']
 
 function App() {
   const [showLanding, setShowLanding] = useState(true)
@@ -136,13 +136,18 @@ function App() {
           {/* Centered slot for the actions HUD (rendered via portal from TableSimulatorView) */}
           <Box id="actions-hud-slot" sx={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', minWidth: 0 }} />
 
-          <Box sx={{ flexShrink: 0, display: 'flex', gap: 1 }}>
-            <Button variant="outlined" color="error" size="small" onClick={handleClear}>
-              Clear hand
-            </Button>
-            <Button variant="contained" color="secondary" size="small" onClick={handleNewTable}>
-              New table
-            </Button>
+          {/* Right side: Bots tab → New game (portalled from BotGameView); Game/Move Log → Clear hand + New table */}
+          <Box id="header-right-slot" sx={{ flexShrink: 0, display: 'flex', gap: 1 }}>
+            {activeTab !== 'bots' && (
+              <>
+                <Button variant="outlined" color="error" size="small" onClick={handleClear}>
+                  Clear hand
+                </Button>
+                <Button variant="contained" color="secondary" size="small" onClick={handleNewTable}>
+                  New table
+                </Button>
+              </>
+            )}
           </Box>
         </Box>
 
@@ -150,6 +155,10 @@ function App() {
         {activeTab === 'movelog' ? (
           <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', py: 2 }}>
             <MoveLog moves={moveLog} />
+          </Box>
+        ) : activeTab === 'bots' ? (
+          <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', px: 2 }}>
+            <BotGameView />
           </Box>
         ) : (
           /* Game (default) and Info tabs both show the same layout:

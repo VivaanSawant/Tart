@@ -1,6 +1,3 @@
-<<<<<<< HEAD
-/* ===== Profile adherence ring (conic gradient — keep custom) ===== */
-=======
 /* Move Log – Rich analytics & visuals */
 .move-log {
   max-width: 900px;
@@ -187,7 +184,6 @@
   box-shadow: 0 12px 40px rgba(52, 152, 219, 0.15);
 }
 
->>>>>>> origin/main
 .profile-avatar {
   position: relative;
   width: 100px;
@@ -410,9 +406,6 @@
   min-width: 40px;
 }
 
-<<<<<<< HEAD
-/* ===== Raise comparison ===== */
-=======
 /* Summary callout */
 .summary-callout {
   margin-bottom: 32px;
@@ -442,7 +435,6 @@
 }
 
 /* Raise Comparison */
->>>>>>> origin/main
 .raise-comparison-chart {
   display: flex;
   flex-direction: column;
@@ -490,8 +482,6 @@
   height: 120px;
   display: block;
 }
-<<<<<<< HEAD
-=======
 
 .trend-labels {
   display: flex;
@@ -632,4 +622,3 @@
 .detail-row strong {
   color: #eee;
 }
->>>>>>> origin/main

@@ -421,84 +421,86 @@ export default function TableSimulatorView({
         </div>
       </div>
 
-      {/* Actions HUD — portalled into the nav bar slot */}
+      {/* Actions HUD — portalled into the nav bar slot; centered, grayscale to match header */}
       {currentActor != null && (() => {
         const slot = document.getElementById('actions-hud-slot')
         if (!slot) return null
+        const btnSx = { bgcolor: '#555', color: '#fff', '&:hover': { bgcolor: '#666' } }
         return createPortal(
-          <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', flexWrap: 'nowrap' }}>
-            {isMyTurn && canAct ? (
-              <>
-                {canCheck && (
-                  <Button size="small" variant="contained" sx={{ bgcolor: '#3498db', '&:hover': { bgcolor: '#2980b9' } }} onClick={() => handleAction('check', 0, true)}>
-                    Check
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
+            <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', flexWrap: 'nowrap' }}>
+              {isMyTurn && canAct ? (
+                <>
+                  {canCheck && (
+                    <Button size="small" variant="contained" sx={btnSx} onClick={() => handleAction('check', 0, true)}>
+                      Check
+                    </Button>
+                  )}
+                  {costToCall > 0 && (
+                    <Button size="small" variant="contained" sx={btnSx} onClick={() => handleAction('call', costToCall, true)}>
+                      Call {formatMoney(costToCall)}
+                    </Button>
+                  )}
+                  <Button size="small" variant="contained" sx={btnSx} onClick={() => handleAction('fold', 0, true)}>
+                    Fold
                   </Button>
-                )}
-                {costToCall > 0 && (
-                  <Button size="small" variant="contained" color="success" onClick={() => handleAction('call', costToCall, true)}>
-                    Call {formatMoney(costToCall)}
+                  <Button size="small" variant="contained" sx={btnSx} onClick={() => handleAction('raise', raiseAmount, true)}>
+                    Raise
                   </Button>
-                )}
-                <Button size="small" variant="contained" color="error" onClick={() => handleAction('fold', 0, true)}>
-                  Fold
-                </Button>
-                <Button size="small" variant="contained" sx={{ bgcolor: '#f1c40f', color: '#1a1a2e', '&:hover': { bgcolor: '#f39c12' } }} onClick={() => handleAction('raise', raiseAmount, true)}>
-                  Raise
-                </Button>
-                <TextField
-                  type="number"
-                  size="small"
-                  inputProps={{ min: 0.01, step: 0.1 }}
-                  value={raiseAmount}
-                  onChange={(e) => setRaiseAmount(Number(e.target.value) || 0.2)}
-                  sx={{ width: 68, '& input': { py: 0.5, px: 0.75, fontSize: '0.78rem' } }}
-                />
-              </>
-            ) : (
-              <>
-                <Typography variant="caption" sx={{ mr: 0.25, whiteSpace: 'nowrap' }}>Seat {currentActor}</Typography>
-                {canCheck && (
-                  <Button size="small" variant="contained" sx={{ bgcolor: '#555', '&:hover': { bgcolor: '#666' } }} onClick={() => handleAction('check', 0, false)}>
-                    Check
+                  <TextField
+                    type="number"
+                    size="small"
+                    inputProps={{ min: 0.01, step: 0.1 }}
+                    value={raiseAmount}
+                    onChange={(e) => setRaiseAmount(Number(e.target.value) || 0.2)}
+                    sx={{ width: 68, '& input': { py: 0.5, px: 0.75, fontSize: '0.78rem' } }}
+                  />
+                </>
+              ) : (
+                <>
+                  <Typography variant="caption" sx={{ mr: 0.25, whiteSpace: 'nowrap' }}>Seat {currentActor}</Typography>
+                  {canCheck && (
+                    <Button size="small" variant="contained" sx={btnSx} onClick={() => handleAction('check', 0, false)}>
+                      Check
+                    </Button>
+                  )}
+                  {costToCall > 0 && (
+                    <Button size="small" variant="contained" sx={btnSx} onClick={() => handleAction('call', costToCall, false)}>
+                      Call {formatMoney(costToCall)}
+                    </Button>
+                  )}
+                  <Button size="small" variant="contained" sx={btnSx} onClick={() => handleAction('fold', 0, false)}>
+                    Fold
                   </Button>
-                )}
-                {costToCall > 0 && (
-                  <Button size="small" variant="contained" sx={{ bgcolor: '#555', '&:hover': { bgcolor: '#666' } }} onClick={() => handleAction('call', costToCall, false)}>
-                    Call {formatMoney(costToCall)}
+                  <Button size="small" variant="contained" sx={btnSx} onClick={() => handleAction('raise', raiseAmount, false)}>
+                    Raise
                   </Button>
-                )}
-                <Button size="small" variant="contained" sx={{ bgcolor: '#555', '&:hover': { bgcolor: '#666' } }} onClick={() => handleAction('fold', 0, false)}>
-                  Fold
-                </Button>
-                <Button size="small" variant="contained" sx={{ bgcolor: '#555', '&:hover': { bgcolor: '#666' } }} onClick={() => handleAction('raise', raiseAmount, false)}>
-                  Raise
-                </Button>
-                <TextField
-                  type="number"
-                  size="small"
-                  inputProps={{ min: 0.01, step: 0.1 }}
-                  value={raiseAmount}
-                  onChange={(e) => setRaiseAmount(Number(e.target.value) || 0.2)}
-                  sx={{ width: 68, '& input': { py: 0.5, px: 0.75, fontSize: '0.78rem' } }}
-                />
-              </>
-            )}
-            <Button
-              size="small"
-              variant="contained"
-              color={listening ? 'error' : 'success'}
-              startIcon={listening ? <StopIcon /> : <MicIcon />}
-              onClick={listening ? stopListening : startListening}
-              sx={listening ? { animation: 'pulse-red 1.2s ease-in-out infinite' } : {}}
-            >
-              {listening ? 'Stop' : 'Voice'}
-            </Button>
-            {listening && (
-              <Typography variant="caption" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 180 }}>
-                {voiceStatus || 'Listening…'}
-              </Typography>
-            )}
-          </Stack>,
+                  <TextField
+                    type="number"
+                    size="small"
+                    inputProps={{ min: 0.01, step: 0.1 }}
+                    value={raiseAmount}
+                    onChange={(e) => setRaiseAmount(Number(e.target.value) || 0.2)}
+                    sx={{ width: 68, '& input': { py: 0.5, px: 0.75, fontSize: '0.78rem' } }}
+                  />
+                </>
+              )}
+              <Button
+                size="small"
+                variant="contained"
+                sx={listening ? { bgcolor: '#444', '&:hover': { bgcolor: '#555' } } : btnSx}
+                startIcon={listening ? <StopIcon /> : <MicIcon />}
+                onClick={listening ? stopListening : startListening}
+              >
+                {listening ? 'Stop' : 'Voice'}
+              </Button>
+              {listening && (
+                <Typography variant="caption" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 180 }}>
+                  {voiceStatus || 'Listening…'}
+                </Typography>
+              )}
+            </Stack>
+          </Box>,
           slot
         )
       })()}

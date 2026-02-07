@@ -1,6 +1,18 @@
 import { useCallback, useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { botAction, botFetchState, botNextHand, botStart } from '../api/backend'
 import { getCardImage } from '../utils/cardImages'
+
+import Alert from '@mui/material/Alert'
+import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
+import Chip from '@mui/material/Chip'
+import Paper from '@mui/material/Paper'
+import Stack from '@mui/material/Stack'
+import TextField from '@mui/material/TextField'
+import Typography from '@mui/material/Typography'
+import CircularProgress from '@mui/material/CircularProgress'
+
 import './TableSimulator.css'
 
 function formatMoney(val) {
@@ -59,18 +71,15 @@ export default function BotGameView() {
     }
   }, [state?.pot])
 
-  const handleAction = useCallback(
-    async (action, amount = 0) => {
-      const res = await botAction(action, amount)
-      if (res && res.ok && res.state) {
-        setState(res.state)
-        setError(null)
-      } else {
-        setError(res?.error || 'Invalid action')
-      }
-    },
-    []
-  )
+  const handleAction = useCallback(async (action, amount = 0) => {
+    const res = await botAction(action, amount)
+    if (res && res.ok && res.state) {
+      setState(res.state)
+      setError(null)
+    } else {
+      setError(res?.error || 'Invalid action')
+    }
+  }, [])
 
   const handleNextHand = useCallback(async () => {
     const res = await botNextHand()
@@ -90,18 +99,24 @@ export default function BotGameView() {
 
   if (!state) {
     return (
-      <div className="table-sim-view">
-        <p className="table-sim-loading">Loading bot game…</p>
-        <button type="button" className="btn btn-reset" onClick={handleNewGame}>
+      <Box className="table-sim-view" sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 5, gap: 2 }}>
+        <Stack direction="row" spacing={2} alignItems="center">
+          <CircularProgress size={24} />
+          <Typography color="text.secondary">Loading bot game…</Typography>
+        </Stack>
+        <Button variant="contained" color="primary" onClick={handleNewGame}>
           Start new game
-        </button>
-      </div>
+        </Button>
+      </Box>
     )
   }
 
   const n = state.num_players || 6
   const seatPositions = []
-  const L = 5, R = 95, T = 8, B = 92
+  const L = 5
+  const R = 95
+  const T = 2  /* Top-row seats (e.g. seat 0) sit higher so they don't cover pot text */
+  const B = 92
   const W = R - L
   const H = B - T
   const halfW = W / 2
@@ -140,172 +155,261 @@ export default function BotGameView() {
   const showExploitPanel = opponentCount > 0 && !showdown
 
   return (
-    <div className="table-sim-view">
+    <Box className="table-sim-view table-sim-view--bots" sx={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', minHeight: 0, overflow: 'auto' }}>
       {showExploitPanel && (
-        <div className="exploit-panel">
-          <div className="exploit-panel-glow" />
-          <div className="exploit-panel-content">
-            <span className="exploit-icon">⚠</span>
-            <div className="exploit-text">
-              <strong>Bots are playing to your weakness</strong>
-              <span className="exploit-sub">
-                Opponents use inverse aggression — they exploit your tendency. Your moves are logged and reflected in their strategy.
-              </span>
-            </div>
-            <div className="exploit-meter-wrap">
-              <span className="exploit-meter-label">Exploit intensity</span>
-              <div className="exploit-meter-track">
-                <div
-                  className="exploit-meter-fill"
-                  style={{ width: `${Math.min(100, (opponentCount / 6) * 60 + (state.pot || 0) * 8)}%` }}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {error && <p className="table-sim-error">{error}</p>}
-
-      <div className="table-container">
-        <div className="table-felt">
-          <div className="table-center">
-            <div className="table-info-row">
-              <div className="table-pot">Pot {formatMoney(state.pot)}</div>
-            </div>
-            <div className="table-board">
-              {(showdown ? [showdownFlop[0], showdownFlop[1], showdownFlop[2], showdownTurn, showdownRiver] : board).map((card, i) => {
-                const img = card ? getCardImage(card) : null
-                return (
-                  <div key={i} className={`board-card-slot${img ? ' board-card-slot--filled' : ''}`}>
-                    {img && <img src={img} alt={card} className="board-card-img" />}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-
-          {seatPositions.map(({ seat, x, y }) => {
-            const inHand = state.players_in_hand?.includes(seat)
-            const isCurrent = seat === currentActor
-            const isDealer = seat === state.dealer_seat
-            const isSB = seat === state.sb_seat
-            const isBB = seat === state.bb_seat
-            const bet = state.player_bets_this_street?.[String(seat)] ?? 0
-            const isHero = seat === heroSeat
-            const cardsForSeat = showdown ? showdownHands[seat] : (isHero ? holeCards : null)
-
-            return (
-              <div
-                key={seat}
-                className={`seat seat-${seat} ${!inHand ? 'folded' : ''} ${isCurrent ? 'current' : ''} ${isHero ? 'hero' : ''}`}
-                style={{ left: `${x}%`, top: `${y}%`, transform: 'translate(-50%, -50%)' }}
-              >
-                <div className="seat-label">
-                  Seat {seat}
-                  {isHero && <span className="hero-badge">YOU</span>}
-                  {!isHero && inHand && <span className="bot-badge">BOT</span>}
-                </div>
-                {!isHero && inHand && (
-                  <div className="seat-exploit-hint" title="This opponent adjusts to your play">
-                    Exploit
-                  </div>
-                )}
-                <div className="seat-badges">
-                  {isDealer && <span className="badge dealer">D</span>}
-                  {isSB && <span className="badge sb">SB</span>}
-                  {isBB && <span className="badge bb">BB</span>}
-                  {isCurrent && !showdown && <span className="badge turn">→</span>}
-                  {showdown && showdown.winner_seat === seat && (
-                    <span className="badge" style={{ background: '#2ecc71', color: '#1a1a2e' }}>WIN</span>
-                  )}
-                </div>
-                {bet > 0 && <div className="seat-bet">{formatMoney(bet)}</div>}
-                {cardsForSeat && (
-                  <div className="hero-hole-cards">
-                    <div className="hero-hole-slots">
-                      {[cardsForSeat[0] || null, cardsForSeat[1] || null].map((card, ci) => {
-                        const img = card ? getCardImage(card) : null
-                        return (
-                          <div key={ci} className={`hero-hole-slot${img ? ' hero-hole-slot--filled' : ''}`}>
-                            {img && <img src={img} alt={card} className="hero-hole-img" />}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      </div>
-
-      {showdown ? (
-        <div className="actions-hud">
-          <div className="showdown-result">
-            {showdown.winner_seat != null ? (
-              <span>Seat {showdown.winner_seat} wins {formatMoney(state.pot)}!</span>
-            ) : (
-              <span>Hand over</span>
-            )}
-          </div>
-          <button type="button" className="btn btn-action btn-call hud-btn" onClick={handleNextHand}>
-            Next hand
-          </button>
-        </div>
-      ) : currentActor != null && (
-        <div className="actions-hud">
-          {isMyTurn && canAct && (
-            <div className="hud-row">
-              {canCheck && (
-                <button type="button" className="btn btn-action btn-check hud-btn" onClick={() => handleAction('check', 0)}>
-                  Check
-                </button>
-              )}
-              {costToCall > 0 && (
-                <button type="button" className="btn btn-action btn-call hud-btn" onClick={() => handleAction('call', costToCall)}>
-                  Call {formatMoney(costToCall)}
-                </button>
-              )}
-              <button type="button" className="btn btn-action btn-fold hud-btn" onClick={() => handleAction('fold', 0)}>
-                Fold
-              </button>
-              <button type="button" className="btn btn-action btn-raise hud-btn" onClick={() => handleAction('raise', raiseAmount)}>
-                Raise
-              </button>
-              <input
-                type="number"
-                className="hud-raise-input"
-                min="0.01"
-                step="0.1"
-                value={raiseAmount}
-                onChange={(e) => setRaiseAmount(Number(e.target.value) || 0.2)}
+        <Alert
+          severity="warning"
+          icon={<span style={{ fontSize: '1.2rem' }}>⚠</span>}
+          sx={{
+            mb: 2,
+            '& .MuiAlert-message': { width: '100%' },
+            bgcolor: 'rgba(255,152,0,0.08)',
+            border: '1px solid',
+            borderColor: 'warning.main',
+          }}
+        >
+          <Typography component="span" fontWeight={700} sx={{ display: 'block', mb: 0.5 }}>
+            Bots are playing to your weakness
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+            Opponents use inverse aggression — they exploit your tendency. Your moves are logged and reflected in their strategy.
+          </Typography>
+          <Box sx={{ mt: 1 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+              Exploit intensity
+            </Typography>
+            <Box
+              sx={{
+                height: 8,
+                borderRadius: 1,
+                bgcolor: 'action.hover',
+                overflow: 'hidden',
+              }}
+            >
+              <Box
+                sx={{
+                  height: '100%',
+                  width: `${Math.min(100, (opponentCount / 6) * 60 + (state.pot || 0) * 8)}%`,
+                  bgcolor: 'warning.main',
+                  borderRadius: 1,
+                  transition: 'width 0.3s ease',
+                }}
               />
-            </div>
-          )}
-          {!isMyTurn && (
-            <div className="hud-row hud-bot-status">
-              {lastBotAction && (
-                <span className="hud-last-action">
-                  Seat {lastBotAction.seat}{' '}
-                  {lastBotAction.action === 'check' ? 'checked'
-                    : lastBotAction.action === 'call' ? `called ${formatMoney(lastBotAction.amount)}`
-                    : lastBotAction.action === 'raise' ? `raised ${formatMoney(lastBotAction.amount)}`
-                    : lastBotAction.action === 'fold' ? 'folded' : lastBotAction.action}
-                </span>
-              )}
-              <span className="hud-seat-label">Seat {currentActor} (bot) is acting…</span>
-            </div>
-          )}
-        </div>
+            </Box>
+          </Box>
+        </Alert>
       )}
 
-      <div className="bot-game-header" style={{ marginTop: 10 }}>
-        <button type="button" className="btn btn-reset" onClick={handleNewGame}>
-          New game
-        </button>
-      </div>
-    </div>
+      {error && (
+        <Alert severity="error" onClose={() => setError(null)} sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+
+      <Box sx={{ position: 'relative', width: '100%', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        <div className="table-container">
+          <div className="table-felt">
+            <div className="table-center">
+              <div className="table-info-row">
+                <div className="table-pot">Pot {formatMoney(state.pot)}</div>
+              </div>
+              <div className="table-board">
+                {(showdown ? [showdownFlop[0], showdownFlop[1], showdownFlop[2], showdownTurn, showdownRiver] : board).map((card, i) => {
+                  const img = card ? getCardImage(card) : null
+                  return (
+                    <div key={i} className={`board-card-slot${img ? ' board-card-slot--filled' : ''}`}>
+                      {img && <img src={img} alt={card} className="board-card-img" />}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            {seatPositions.map(({ seat, x, y }) => {
+              const inHand = state.players_in_hand?.includes(seat)
+              const isCurrent = seat === currentActor
+              const isDealer = seat === state.dealer_seat
+              const isSB = seat === state.sb_seat
+              const isBB = seat === state.bb_seat
+              const bet = state.player_bets_this_street?.[String(seat)] ?? 0
+              const isHero = seat === heroSeat
+              const cardsForSeat = showdown ? showdownHands[seat] : (isHero ? holeCards : null)
+
+              return (
+                <Paper
+                  key={seat}
+                  elevation={inHand && !showdown ? 2 : 0}
+                  className={`seat seat-${seat} ${!inHand ? 'folded' : ''} ${isCurrent ? 'current' : ''} ${isHero ? 'hero' : ''}`}
+                  style={{ left: `${x}%`, top: `${y}%`, transform: 'translate(-50%, -50%)' }}
+                  sx={{
+                    position: 'absolute',
+                    borderRadius: 2,
+                    p: 1,
+                    minWidth: 70,
+                    border: '2px solid',
+                    borderColor: isCurrent ? '#3498db' : 'divider',
+                    boxShadow: isCurrent ? '0 0 16px rgba(52,152,219,0.5)' : 'none',
+                    opacity: !inHand ? 0.5 : 1,
+                    bgcolor: !inHand ? '#1e1e1e' : 'background.paper',
+                    zIndex: isHero ? 10 : 1,
+                    transition: 'border-color 0.2s, box-shadow 0.2s',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                  }}
+                >
+                  <Stack spacing={0.5} alignItems="center">
+                    <Stack direction="row" alignItems="center" spacing={0.5} flexWrap="wrap" justifyContent="center">
+                      <Typography variant="body2" fontWeight={600}>
+                        Seat {seat}
+                      </Typography>
+                      {isHero && <Chip label="YOU" size="small" color="success" sx={{ height: 20, fontSize: '0.7rem' }} />}
+                      {!isHero && inHand && <Chip label="BOT" size="small" sx={{ height: 20, fontSize: '0.7rem', bgcolor: '#555', color: '#fff' }} />}
+                    </Stack>
+                    {!isHero && inHand && (
+                      <Typography variant="caption" color="text.secondary" title="This opponent adjusts to your play">
+                        Exploit
+                      </Typography>
+                    )}
+                    <Stack direction="row" spacing={0.5} flexWrap="wrap" justifyContent="center">
+                      {isDealer && <Chip label="D" size="small" sx={{ height: 20, fontSize: '0.7rem', bgcolor: '#3498db', color: '#fff' }} />}
+                      {isSB && <Chip label="SB" size="small" sx={{ height: 20, fontSize: '0.7rem', bgcolor: '#9b59b6', color: '#fff' }} />}
+                      {isBB && <Chip label="BB" size="small" sx={{ height: 20, fontSize: '0.7rem', bgcolor: '#e67e22', color: '#fff' }} />}
+                      {isCurrent && !showdown && <Chip label="→" size="small" sx={{ height: 20, fontSize: '0.7rem', bgcolor: '#2ecc71', color: '#1a1a2e' }} />}
+                      {showdown && showdown.winner_seat === seat && (
+                        <Chip label="WIN" size="small" sx={{ height: 20, fontSize: '0.7rem', bgcolor: '#2ecc71', color: '#1a1a2e' }} />
+                      )}
+                    </Stack>
+                    {bet > 0 && (
+                      <Typography variant="body2" sx={{ color: '#f1c40f', fontWeight: 600 }}>
+                        {formatMoney(bet)}
+                      </Typography>
+                    )}
+                    {cardsForSeat && (
+                      <Stack direction="row" spacing={0.5} sx={{ mt: 0.5 }}>
+                        {[cardsForSeat[0] || null, cardsForSeat[1] || null].map((card, ci) => {
+                          const img = card ? getCardImage(card) : null
+                          return (
+                            <Box
+                              key={ci}
+                              sx={{
+                                width: 59,
+                                height: 84,
+                                border: '2px solid',
+                                borderColor: img ? 'transparent' : 'rgba(230,126,34,0.5)',
+                                borderRadius: 1,
+                                bgcolor: img ? 'transparent' : 'rgba(15,15,26,0.6)',
+                                overflow: 'hidden',
+                              }}
+                            >
+                              {img && <Box component="img" src={img} alt={card} sx={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />}
+                            </Box>
+                          )
+                        })}
+                      </Stack>
+                    )}
+                  </Stack>
+                </Paper>
+              )
+            })}
+          </div>
+        </div>
+      </Box>
+
+      {/* Betting controls — portalled into the header (#actions-hud-slot); centered, grayscale to match Game tab */}
+      {showdown ? (() => {
+        const slot = document.getElementById('actions-hud-slot')
+        if (!slot) return null
+        const btnSx = { bgcolor: '#555', color: '#fff', '&:hover': { bgcolor: '#666' } }
+        return createPortal(
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
+            <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap">
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                {showdown.winner_seat != null ? (
+                  <>Seat {showdown.winner_seat} wins {formatMoney(state.pot)}!</>
+                ) : (
+                  'Hand over'
+                )}
+              </Typography>
+              <Button size="small" variant="contained" sx={btnSx} onClick={handleNextHand}>
+                Next hand
+              </Button>
+            </Stack>
+          </Box>,
+          slot
+        )
+      })() : currentActor != null && (() => {
+        const slot = document.getElementById('actions-hud-slot')
+        if (!slot) return null
+        const btnSx = { bgcolor: '#555', color: '#fff', '&:hover': { bgcolor: '#666' } }
+        return createPortal(
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
+            <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', flexWrap: 'nowrap' }}>
+              {isMyTurn && canAct ? (
+                <>
+                  {canCheck && (
+                    <Button size="small" variant="contained" sx={btnSx} onClick={() => handleAction('check', 0)}>
+                      Check
+                    </Button>
+                  )}
+                  {costToCall > 0 && (
+                    <Button size="small" variant="contained" sx={btnSx} onClick={() => handleAction('call', costToCall)}>
+                      Call {formatMoney(costToCall)}
+                    </Button>
+                  )}
+                  <Button size="small" variant="contained" sx={btnSx} onClick={() => handleAction('fold', 0)}>
+                    Fold
+                  </Button>
+                  <Button size="small" variant="contained" sx={btnSx} onClick={() => handleAction('raise', raiseAmount)}>
+                    Raise
+                  </Button>
+                  <TextField
+                    type="number"
+                    size="small"
+                    inputProps={{ min: 0.01, step: 0.1 }}
+                    value={raiseAmount}
+                    onChange={(e) => setRaiseAmount(Number(e.target.value) || 0.2)}
+                    sx={{ width: 72, '& .MuiInputBase-input': { py: 0.75, px: 1, fontSize: '0.875rem' } }}
+                  />
+                </>
+              ) : (
+                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                  {lastBotAction && (
+                    <Typography variant="body2" color="text.secondary">
+                      Seat {lastBotAction.seat}{' '}
+                      {lastBotAction.action === 'check'
+                        ? 'checked'
+                        : lastBotAction.action === 'call'
+                          ? `called ${formatMoney(lastBotAction.amount)}`
+                          : lastBotAction.action === 'raise'
+                            ? `raised ${formatMoney(lastBotAction.amount)}`
+                            : lastBotAction.action === 'fold'
+                              ? 'folded'
+                              : lastBotAction.action}
+                    </Typography>
+                  )}
+                  <Typography variant="body2" color="text.secondary">
+                    Seat {currentActor} (bot) is acting…
+                  </Typography>
+                </Stack>
+              )}
+            </Stack>
+          </Box>,
+          slot
+        )
+      })()}
+
+      {/* New game button — portalled into header right slot when Bots tab is active */}
+      {(() => {
+        const slot = document.getElementById('header-right-slot')
+        if (!slot) return null
+        return createPortal(
+          <Button variant="contained" color="secondary" size="small" onClick={handleNewGame}>
+            New game
+          </Button>,
+          slot
+        )
+      })()}
+    </Box>
   )
 }

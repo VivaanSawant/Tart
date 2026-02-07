@@ -48,9 +48,6 @@ function computeStats(moves) {
   const avgEquity = equityValues.length ? equityValues.reduce((s, e) => s + e, 0) / equityValues.length : null
   const aggression = total > 0 ? Math.round((((byAction.raise || 0) + (byAction.call || 0) * 0.5) / total) * 100) : 0
 
-<<<<<<< HEAD
-  return { total, matched, adherence, avgEquity, byAction, byOptimal, byStreet, streetCorrect, equityValues, raiseComparisons, aggression }
-=======
   // Current streak (consecutive optimal or deviated at end)
   let optimalStreak = 0
   let deviateStreak = 0
@@ -96,7 +93,6 @@ function computeStats(moves) {
     riverPct,
     avgRaiseDiff,
   }
->>>>>>> origin/main
 }
 
 function EquityCell({ value }) {
@@ -140,28 +136,11 @@ export default function MoveLog({ moves = [] }) {
   }
 
   return (
-<<<<<<< HEAD
     <Box className="move-log" sx={{ maxWidth: 800, mx: 'auto' }}>
       <Box sx={{ mb: 3 }}>
         <Typography variant="h5" sx={{ fontWeight: 700 }}>Move Log</Typography>
         <Typography variant="body2">Your plays with equity, optimal comparison &amp; analytics</Typography>
       </Box>
-=======
-    <div className="move-log">
-      <div className="move-log-hero">
-        <h1 className="move-log-title">Move Log</h1>
-        <p className="move-log-subtitle">Your plays with equity, optimal comparison & analytics</p>
-        <div className="move-log-meta">
-          <span className="move-log-meta-item">Session: {stats.total} moves</span>
-          {stats.optimalStreak > 0 && (
-            <span className="move-log-streak optimal">🔥 {stats.optimalStreak} optimal in a row</span>
-          )}
-          {stats.deviateStreak > 0 && (
-            <span className="move-log-streak deviate">⚠ {stats.deviateStreak} deviated in a row</span>
-          )}
-        </div>
-      </div>
->>>>>>> origin/main
 
       {/* Live Insights */}
       <section className="move-log-section insights-section">
@@ -391,7 +370,6 @@ export default function MoveLog({ moves = [] }) {
               const matched = act === opt || (act === 'check' && opt === 'no_bet')
               const isExpanded = expandedMove === i
 
-<<<<<<< HEAD
               return (
                 <Paper
                   key={i}
@@ -441,68 +419,5 @@ export default function MoveLog({ moves = [] }) {
         </CardContent>
       </Card>
     </Box>
-=======
-            return (
-              <div
-                key={i}
-                className={`move-log-entry ${matched ? 'matched' : 'deviated'} ${isExpanded ? 'expanded' : ''} ${isHovered ? 'hovered' : ''}`}
-                onMouseEnter={() => setHoveredMove(i)}
-                onMouseLeave={() => setHoveredMove(null)}
-                onClick={() => setExpandedMove(isExpanded ? null : i)}
-              >
-                <div className="move-log-header">
-                  <span className="move-log-hand">Hand #{m.handNumber ?? '—'}</span>
-                  <span className="move-log-street">{m.street}</span>
-                  {m.timestamp != null && (
-                    <span className="move-log-time">{formatTimestamp(m.timestamp)}</span>
-                  )}
-                  <span className={`move-log-badge ${matched ? 'match' : 'deviate'}`}>
-                    {matched ? '✓ Optimal' : '≠ Deviated'}
-                  </span>
-                </div>
-                <div className="move-log-body">
-                  <span className="move-log-action">{m.action}</span>
-                  {m.amount > 0 && <span className="move-log-amount">{formatMoney(m.amount)}</span>}
-                  <span className="move-log-equity">
-                    Equity: {m.equity != null ? `${Number(m.equity).toFixed(1)}%` : '—'}
-                  </span>
-                  <span className="move-log-optimal">
-                    Optimal: <strong>{m.optimalMove ?? '—'}</strong>
-                  </span>
-                  {m.pot != null && (
-                    <span className="move-log-pot">Pot: {formatMoney(m.pot)}</span>
-                  )}
-                  {m.toCall != null && m.toCall > 0 && (
-                    <span className="move-log-tocall">To call: {formatMoney(m.toCall)}</span>
-                  )}
-                </div>
-                {isExpanded && (
-                  <div className="move-log-detail">
-                    <div className="detail-row">
-                      <span>Your action:</span> <strong>{m.action}</strong> {m.amount > 0 && formatMoney(m.amount)}
-                    </div>
-                    <div className="detail-row">
-                      <span>Optimal:</span> <strong>{m.optimalMove}</strong>
-                      {m.suggestedRaise != null && m.action === 'raise' && (
-                        <> (suggested raise: {formatMoney(m.suggestedRaise)})</>
-                      )}
-                    </div>
-                    <div className="detail-row">
-                      <span>Equity at decision:</span> {m.equity != null ? `${Number(m.equity).toFixed(1)}%` : '—'}
-                    </div>
-                    {m.timestamp != null && (
-                      <div className="detail-row">
-                        <span>Logged:</span> {new Date(m.timestamp).toLocaleString()}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      </section>
-    </div>
->>>>>>> origin/main
   )
 }
