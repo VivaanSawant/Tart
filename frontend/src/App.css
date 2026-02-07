@@ -121,7 +121,7 @@
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  overflow: hidden;
+  overflow: visible;
   padding-top: 10px;
 }
 
