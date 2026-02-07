@@ -305,15 +305,47 @@ shared_state = {
 }
 stop_event = threading.Event()
 
-# Table simulator (standalone flow, no cards)
+# Table simulator (integrated with CV: tracks flow, hero acts via BettingModal/keys)
 table_sim: TableSimulator | None = None
+
+
+def _on_hand_ended(_state) -> None:
+    """When hand ends (hero folded or heads-up), clear card state for next hand."""
+    with shared_state["lock"]:
+        shared_state["locked_cards"].clear()
+        shared_state["flop_cards"].clear()
+        shared_state["turn_card"] = None
+        shared_state["river_card"] = None
+        shared_state["last_unknown_set"] = None
+        shared_state["betting_confirmed_up_to"] = None
+    clear_hand_state_file()
+    equitypredict.clear_cache()
 
 
 def _get_table_sim() -> TableSimulator:
     global table_sim
     if table_sim is None:
-        table_sim = TableSimulator(config=TableConfig(num_players=6, hero_seat=None))
+        table_sim = TableSimulator(
+            config=TableConfig(num_players=6, hero_seat=None),
+            on_hand_ended=_on_hand_ended,
+        )
     return table_sim
+
+
+def _pot_state_from_table(table_state, to_call: float):
+    """Adapter: provide PotState interface for pot_calc.recommendation from table sim."""
+    pot = table_state.pot
+    pot_after = pot + to_call if to_call > 0 else pot
+    required = (100.0 * to_call / pot_after) if to_call > 0 and pot_after > 0 else None
+
+    class _TablePotAdapter:
+        def amount_to_call(self, street):
+            return to_call
+
+        def required_equity_pct(self, street):
+            return required
+
+    return _TablePotAdapter()
 
 
 def _table_state_to_dict(s) -> dict:
@@ -386,7 +418,14 @@ def api_state():
         river_card=river,
         unknown_cards=available,
     )
-    analysis = equitypredict.compute_full_analysis(card_logger.LOG_FILE)
+
+    # Equity uses table sim: num_players = players still in hand (how many opponents hero faces)
+    ts = _get_table_sim()
+    table_state = ts.get_state()
+    num_players_equity = max(2, len(table_state.players_in_hand))
+    analysis = equitypredict.compute_full_analysis(
+        card_logger.LOG_FILE, num_players=num_players_equity
+    )
     equity_flop = analysis["equity_flop"]
     equity_turn = analysis["equity_turn"]
     equity_river = analysis["equity_river"]
@@ -410,26 +449,37 @@ def api_state():
         equity_river=equity_river,
     )
 
-    # Pending betting: which street must be confirmed before scanning for next cards
+    # Table sim drives street, pot, cost to call. Pending = hero's turn + we have cards for street
+    current_street = table_state.street
+    to_call = ts.cost_to_call(table_state.current_actor) if table_state.current_actor is not None else 0
+    hero_seat = ts.config.hero_seat
+    is_hero_turn = hero_seat is not None and table_state.current_actor == hero_seat
+
     with shared_state["lock"]:
         confirmed = shared_state.get("betting_confirmed_up_to")
     n_hole, n_flop = len(hole), len(flop)
     has_turn, has_river = turn is not None, river is not None
-    if n_hole == 2 and n_flop == 0 and confirmed in (None, "hole"):
-        pending_betting_street = "preflop"
-    elif n_flop == 3 and not has_turn and confirmed == "preflop":
-        pending_betting_street = "flop"
-    elif has_turn and not has_river and confirmed == "flop":
-        pending_betting_street = "turn"
-    elif has_river and confirmed == "turn":
-        pending_betting_street = "river"
-    else:
-        pending_betting_street = None
+    has_cards_for_street = (
+        (current_street == "preflop" and n_hole >= 2)
+        or (current_street == "flop" and n_hole >= 2 and n_flop >= 3)
+        or (current_street == "turn" and n_hole >= 2 and n_flop >= 3 and has_turn)
+        or (current_street == "river" and n_hole >= 2 and n_flop >= 3 and has_turn and has_river)
+    )
+    street_confirmed = (
+        confirmed
+        and confirmed in pot_calc.STREETS
+        and pot_calc.STREETS.index(confirmed) >= pot_calc.STREETS.index(current_street)
+    )
+    pending_betting_street = (
+        current_street
+        if (is_hero_turn and has_cards_for_street and not street_confirmed)
+        else None
+    )
 
-    # Pot odds: use current street and pot state for recommendation
-    with shared_state["lock"]:
-        pot_state = shared_state["pot_state"]
-        current_street = shared_state["current_street"]
+    # Pot odds from table sim: pot, to_call, required equity
+    pot_total = table_state.pot
+    pot_after_call = pot_total + to_call if to_call > 0 else pot_total
+    required_equity = (100.0 * to_call / pot_after_call) if to_call > 0 and pot_after_call > 0 else None
     equity_for_street = pot_calc.get_equity_for_street(
         current_street,
         equity_flop,
@@ -437,10 +487,9 @@ def api_state():
         equity_river,
         equity_preflop=analysis.get("equity_preflop"),
     )
-    to_call = pot_state.amount_to_call(current_street)
-    required_equity = pot_state.required_equity_pct(current_street)
     verdict, reason = pot_calc.recommendation(
-        equity_for_street, current_street, pot_state
+        equity_for_street, current_street,
+        _pot_state_from_table(table_state, to_call),
     )
 
     return jsonify({
@@ -457,14 +506,14 @@ def api_state():
         "equity_error": equity_error,
         "bet_recommendations": bet_recommendations,
         "pot": {
-            "state": pot_state.to_dict(),
             "current_street": current_street,
-            "pot_before_call": pot_state.pot_before_our_call(current_street),
+            "pot_before_call": pot_total,
             "to_call": to_call,
             "required_equity_pct": required_equity,
             "recommendation": verdict,
             "recommendation_reason": reason,
         },
+        "table": _table_state_to_dict(table_state),
     })
 
 
@@ -526,22 +575,42 @@ def api_lock_hole_all():
 @app.route("/api/confirm_betting", methods=["POST"])
 def api_confirm_betting():
     """
-    Confirm betting for a street before scanning for the next cards.
-    Body: { "street": "preflop"|"flop"|"turn"|"river", "opponent": number, "hero": number }
-    Opponent/hero are total amount put in that street (0 = check).
+    Hero acts on current street: record in table sim and confirm for CV.
+    Body: { "action": "call"|"fold"|"check"|"raise", "amount": number (for call/raise) }
+    Table sim provides street and cost_to_call. Hero seat is set on first action.
     """
     data = request.get_json(force=True, silent=True) or {}
-    street = data.get("street")
-    if street not in pot_calc.STREETS:
-        return jsonify({"ok": False, "error": "missing or invalid 'street'"}), 400
-    opponent = float(data.get("opponent") or 0)
-    hero = float(data.get("hero") or 0)
-    with shared_state["lock"]:
-        state = shared_state["pot_state"]
-        state._bets(street)["opponent"] = opponent
-        state._bets(street)["hero"] = hero
-        shared_state["betting_confirmed_up_to"] = street
-    return jsonify({"ok": True})
+    action = (data.get("action") or "").lower().strip()
+    amount = float(data.get("amount") or 0)
+    if action not in ("call", "fold", "check", "raise"):
+        return jsonify({"ok": False, "error": "action must be call, fold, check, or raise"}), 400
+
+    ts = _get_table_sim()
+    state = ts.get_state()
+    if state.current_actor is None:
+        return jsonify({"ok": False, "error": "Not your turn"}), 400
+
+    cost = ts.cost_to_call(state.current_actor)
+    if action == "check" and cost > 0:
+        return jsonify({"ok": False, "error": "Cannot check when there is a bet"}), 400
+    if action == "call":
+        amount = max(amount, cost)
+    elif action == "raise":
+        amount = max(amount, 0.2)  # min raise
+    elif action == "check":
+        amount = 0
+
+    action_map = {"call": CALL, "fold": FOLD, "check": CHECK, "raise": RAISE}
+    result = ts.record_action(
+        state.current_actor, action_map[action], amount, is_hero_acting=True
+    )
+    if result is None:
+        return jsonify({"ok": False, "error": "Invalid action"}), 400
+
+    if action != "fold":
+        with shared_state["lock"]:
+            shared_state["betting_confirmed_up_to"] = state.street
+    return jsonify({"ok": True, "table": _table_state_to_dict(result)})
 
 
 @app.route("/api/pot", methods=["GET"])
@@ -587,7 +656,8 @@ def api_pot_post():
 
 @app.route("/api/clear", methods=["POST"])
 def api_clear():
-    """Full hand restart: clear all cards, reset stability timer, clear card state file."""
+    """Full hand restart: clear all cards, reset table sim, clear card state file."""
+    global table_sim
     with shared_state["lock"]:
         shared_state["locked_cards"].clear()
         shared_state["flop_cards"].clear()
@@ -598,6 +668,10 @@ def api_clear():
         shared_state["pot_state"] = pot_calc.PotState()
         shared_state["current_street"] = "flop"
         shared_state["betting_confirmed_up_to"] = None
+    table_sim = TableSimulator(
+        config=TableConfig(num_players=6, hero_seat=None),
+        on_hand_ended=_on_hand_ended,
+    )
     clear_hand_state_file()
     equitypredict.clear_cache()
     return jsonify({"ok": True})
@@ -629,9 +703,14 @@ def api_table_action():
         return jsonify({"ok": False, "error": "missing or invalid 'seat'"}), 400
     if action not in (CHECK, CALL, RAISE, FOLD):
         return jsonify({"ok": False, "error": "action must be check, call, raise, or fold"}), 400
-    result = _get_table_sim().record_action(int(seat), action, amount, is_hero_acting=is_hero_acting)
+    ts = _get_table_sim()
+    street_before = ts.get_state().street
+    result = ts.record_action(int(seat), action, amount, is_hero_acting=is_hero_acting)
     if result is None:
         return jsonify({"ok": False, "error": "invalid action (wrong turn?)"}), 400
+    if is_hero_acting and action in (CHECK, CALL, RAISE):
+        with shared_state["lock"]:
+            shared_state["betting_confirmed_up_to"] = street_before
     return jsonify({"ok": True, "state": _table_state_to_dict(result)})
 
 
@@ -641,7 +720,10 @@ def api_table_reset():
     data = request.get_json(force=True, silent=True) or {}
     num_players = int(data.get("num_players") or 6)
     num_players = max(2, min(10, num_players))
-    table_sim = TableSimulator(config=TableConfig(num_players=num_players, hero_seat=None))
+    table_sim = TableSimulator(
+        config=TableConfig(num_players=num_players, hero_seat=None),
+        on_hand_ended=_on_hand_ended,
+    )
     return jsonify({"ok": True, "state": _table_state_to_dict(table_sim.get_state())})
 
 

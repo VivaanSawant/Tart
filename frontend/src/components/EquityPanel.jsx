@@ -51,10 +51,12 @@ export default function EquityPanel({
   potInfo,
   holeCount,
   flopCount,
+  playersInHand = 2,
 }) {
   const hasHole = holeCount >= 2
   const hasFullData = holeCount >= 2 && flopCount >= 3
   const recs = betRecommendations || {}
+  const oppCount = Math.max(0, playersInHand - 1)
 
   let message = ''
   if (equityError) {
@@ -64,7 +66,7 @@ export default function EquityPanel({
   } else if (!hasFullData) {
     message = 'Lock 3 flop cards to see postflop equity and bet recommendations.'
   } else {
-    message = 'Equity = % chance your hand wins vs a random hand (Monte Carlo).'
+    message = `Equity = % chance to win vs ${oppCount} opponent${oppCount !== 1 ? 's' : ''} (from table).`
   }
 
   return (
